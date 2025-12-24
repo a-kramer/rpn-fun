@@ -3,9 +3,9 @@
 I always found reverse polish notation quite fun, it's easy to parse,
 and one does not need to count parentheses.
 
-There is program called `dc`, which i like, but I never use its
+There is program called `dc`, which i like a lot. I never use its
 advanced features (e.g. registers) and I am always a bit disappointed
-that it doesn't have the functions from the math library.
+that it doesn't have the functions from the math library (`math.h`).
 
 In addition, there are certain inconvenciences:
 
@@ -22,23 +22,25 @@ dc -e '1.2 2.3 / p'
 # 0
 ```
 
-... mysterious. For some reason, we must fix this by providing a _precision_ (with _k_ for _precision setting_ ), which wasn't necessary for the `+`:
+... mysterious.
+
+For some reason, we must fix this by providing a _precision_ (with _k_ for _precision setting_ ), which wasn't necessary for the `+`:
 
 ```sh
 dc -e '4 k 1.2 2.3 / p'
 # .5217
 ```
 
-But, `dc` also has fancy operations like `~` which does both integer
+On the other hand, `dc` also has fancy operations like `~` which does both integer
 division and remainder calculation (`/` and `%`) at the same
-time. This is probably cool, but I have certainly never used it.
+time. This is probably cool, I just have never used it.
 
-Another unfortunate thing is that there is an unary minus: `-1` and a binary minus: `1 - 3`. The `dc` program removes this ambiguity by doing this:
+Another unfortunate thing is that, in basic arithmetic, there is an unary minus: `-1` and a binary minus: `1 - 3` (this is generally true). The `dc` program removes this ambiguity in synax by doing this:
 
-- unary minus: `_`, e.g. `1 _1 + p`
-- binary minus: `-`, e.g. `1 1 - p`
+- unary minus: `_` (underscore `0x5f`), e.g. `1 _1 + p`
+- binary minus: `-` (ascii-dash `0x2d`), e.g. `1 1 - p`
 
-But, this agreement is not held in the output:
+But, this convention is not carried over to the output of `dc`:
 
 ```sh
 dc -e '3 _8 + p'
@@ -82,8 +84,9 @@ These are the aspirational goals:
 - Have many special functions (e.g. `exp`, or `tanh`).
 - When the program is done, it prints the entire stack, no print
   commands
+- Avoid stack empty errors
 
-The following sections explain how I address these goals.
+The following sections explain how I address these goals, if I found a way.
 
 # Precision
 
@@ -93,6 +96,7 @@ may become a goal later on.
 But, perhaps what people need from a quick command line tool, is a
 calculation that is integer-like, when sufficient, and not integer
 when needed.
+
 
 ## Rational Numbers $\mathbb{Q}$
 
@@ -145,4 +149,48 @@ which contains no operators or functions, so it just prints what it read:
 (3 + 16/113 -2.668e-07)  # 3.14159
 ```
 
-[...]
+So, to summarize, each number has 4 meaningful components:
+
+$$
+x := \left(A+\frac{n}{d}+f\right)\times 10^{E}
+$$
+
+where $f$ is an optional floating point (`double`) correction term (if
+needed), and $E$ a _scale_ (exponent to the base 10). When converting
+to this format, we try to create E in multiples of three.
+
+# Stack Empty Problem
+
+The last value on the stack, cannot be removed. Thus,
+
+```sh
+./rpnc '2 * * *' # pops 2 and then 2 again, multiplies them, pushes onto stack
+```
+will print:
+```
+(256)   # 256
+```
+that is: `((2*2)*(2*2))*((2*2)*(2*2)) = 2^8`
+or in C code:
+
+```c
+x=2;  // 2
+x*=x; // 4
+x*=x; // 16
+x*=x; // 156
+```
+
+# Operators
+
+These is an incomplete list of operators, more will be added when
+implemented. In every case the result is pushed onto the stack.
+
+`+`
+: pops two values from the stack and adds them (as rationals)
+
+`-`
+: pops one value from the stack and negates it
+
+`*`
+: pops two values from the stack and multiplies them
+
