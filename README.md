@@ -180,6 +180,16 @@ x*=x; // 16
 x*=x; // 156
 ```
 
+The initial top of the stack is the constant `0`. So, this works:
+
+```sh
+./rpnc 'cos'      # should be 1
+```
+returns the cosine of 0:
+```
+(1)     # 1
+```
+
 # Operators
 
 These is an incomplete list of operators, more will be added when
