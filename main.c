@@ -31,6 +31,8 @@ struct number {
 };
 
 const struct number zero = {0, 0, 1, 0, 0.0};
+const struct number one = {1, 0, 1, 0, 0.0};
+struct number reduce(struct number z);
 
 struct stack {
 	int max;
@@ -59,8 +61,8 @@ void stack_push(struct stack *s, struct number a){
 	s->size++;
 }
 
-/* the first element will be popped endlessly, implemented like
- * this
+/* The first element will be popped endlessly, implemented like
+ * this.
  */
 struct number stack_pop(struct stack *s){
 	if (s->size>0){
@@ -69,6 +71,10 @@ struct number stack_pop(struct stack *s){
 	return s->element[s->size];
 }
 
+/* The entire purpose of this function is that I dislike type-casts,
+ * and macros. Typecasts, `(double) n/(double) d` look much worse than
+ * function calls `frac(n,d)`.
+ */
 double frac(double a, double b){
 	return a/b;
 }
@@ -102,6 +108,10 @@ struct number read_number(const char *str){
 	if (*p==';') {
 		z.d = strtol(++p,&eptr,10);
 	}
+	if (z.d < 0){
+		z.d*=-1;
+		z.n*=-1;
+	}
 	if (fabs(z.n)>z.d && z.n>0) {
 		z.a += z.n/z.d;
 		z.n %= z.d;
@@ -132,8 +142,8 @@ int gcdw(int a, int b){
 
 void display_number(struct number z){
 	printf("(%i",z.a);
-	if (z.n != 0) printf(" + %i/%i",z.n,z.d);
-	if (fabs(z.f) > 1e-15*z.a + 1e-15) printf(" %+.4g",z.f);
+	if (abs(z.n) != 0) printf(" %+i/%i",z.n,z.d);
+	if (fabs(z.f) > 1e-15*fabs(z.a) + 1e-15) printf(" %+.4g",z.f);
 	putchar(')');
 	if (z.e != 0) printf("*pow(10,%i)",z.e);
 	printf("\t# %g",as_double(z));
@@ -149,16 +159,8 @@ struct number negate(struct number z){
 }
 
 struct number as_rational(double x){
-	struct number z;
-	if (fabs(x) < frac(1.0,max_denominator)) {
-		/* x is small: only the correction term remains */
-		z.a = 0;
-		z.n = 0;
-		z.d = 1;
-		z.f = x;
-		z.e = 0;
-		return z;
-	}
+	struct number z=zero;
+	if (fabs(x)==0.0) return z;
 	int sign = x<0?-1:+1;
 	int l = floor(log10(fabs(x)+1e-15)/3.0)*3;
 	z.e = l;
@@ -170,7 +172,7 @@ struct number as_rational(double x){
 	while (b+d < max_denominator){
 		pq=frac(a+c,b+d);
 		//fprintf(stderr,"[%s] b+d=%i",__func__,b+d);
-		if (pq < y && y < frac(c,d)){
+		if (pq <= y && y <= frac(c,d)){
 			a+=c;
 			b+=d;
 		} else {
@@ -186,12 +188,12 @@ struct number as_rational(double x){
 		z.d = b;
 	}
 	z.f = y-frac(z.n,z.d);
-	if (sign<0) return negate(z);
-	else return z;
+	if (sign<0) return reduce(negate(z));
+	else return reduce(z);
 }
 
-/* This version of the function has tolerances
-struct number as_rational(double x, double abs_tol, double rel_tol){
+// with tolerances
+struct number as_rational_tol(double x, double abs_tol, double rel_tol){
 	struct number z;
 	int l = floor(log10(x+1e-15)/3.0)*3;
 	x/=pow(10,l);
@@ -220,7 +222,6 @@ struct number as_rational(double x, double abs_tol, double rel_tol){
 	z.f=frac(z.n,z.d)-x;
 	return z;
 }
-*/
 
 // Example
 // x ** 0b1101 = x ** (2**3 + 2**2 + 2**0) = x ** (2**3) + x ** (2**2) * x
@@ -247,9 +248,9 @@ struct number reduce(struct number z){
 	if (sign<0) {
 		z=negate(z);
 	}
-	int n=z.n;
+	//int n=z.n;
 	z.a+=z.n/z.d;
-	z.n = n%z.d;
+	z.n%=z.d;
 	int g=gcdr(z.n,z.d);
 	z.n/=g;
 	z.d/=g;
@@ -272,7 +273,6 @@ struct number scale10(struct number z, int n){
 	z.f /= p10n;
 	return reduce(z);
 }
-
 
 //          x.a               x.n/x.d               x.f
 //        -------------   ----------------  -------------
@@ -357,6 +357,15 @@ int is_numeric(char *str){
 	return 0;
 }
 
+int is_double(char *str){
+	char *ptr=NULL;
+	if (strchr(str,'.')) return 1;
+	ptr = strchr(str,'e');
+	if (!ptr) ptr=strchr(str,'E');
+	if (ptr && ptr>str && is_numeric(ptr-1) && is_numeric(ptr+1)) return 1;
+	return 0;
+}
+
 /* Table of operators:
  * + adds the top two numbers on te stack
  * - negates the top of the stack
@@ -377,7 +386,7 @@ int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
 		if (strchr(item,';')){          /* rational number*/
 			z=reduce(read_number(item));
 			stack_push(&s,z);
-		} else if (strchr(item,'.')){   /* floating point number */
+		} else if (is_double(item)){   /* floating point number */
 			z=as_rational(strtod(item,NULL));
 			stack_push(&s,z);
 		} else if (is_numeric(item)){
@@ -417,7 +426,7 @@ int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
 			default:
 				fprintf(stderr,"[%s] unknown function (%i)\n",__func__,fn);
 			}
-		} else {                        /* an operator: +-^*/
+		} else {                    /* an operator: +-^*/
 			switch(*item){
 			case '+':               /* add two numbers */
 				a=stack_pop(&s);
@@ -435,9 +444,28 @@ int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
 				z=prod(a,b);
 				stack_push(&s,z);
 				break;
+			case '^':
+				a=stack_pop(&s);
+				b=stack_pop(&s);
+				stack_push(&s,as_rational(pow(as_double(b),as_double(a))));
+				break;
+			case '<':
+				b=stack_pop(&s);
+				a=stack_pop(&s);
+				stack_push(&s,as_rational(as_double(a)<as_double(b)));
+				break;
+			case '>':
+				b=stack_pop(&s);
+				a=stack_pop(&s);
+				stack_push(&s,as_rational(as_double(a)>as_double(b)));
+				break;
+			case '=':
+				b=stack_pop(&s);
+				a=stack_pop(&s);
+				stack_push(&s,as_rational(as_double(a)==as_double(b)));
+				break;
 			}
 		}
-
 		item=strtok_r(NULL," ",&saveptr);
 	}
 	for (i=0;i<s.size;i++){

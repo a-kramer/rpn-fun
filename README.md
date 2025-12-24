@@ -113,11 +113,38 @@ This means that:
 # (3)	# 3
 ```
 
-The output looks a bit weird (it's the default output style). It
-prints the rational representation in parentheses, this way it can be
-saved and pasted into some other formula, or expression. Aditionally,
-it also prints a floating point representation of the result, after a
-shell comment mark.
+A leading `-` will negate the entire number:
+
+```sh
+./rpnc '-1;1;8 1;1;8'
+# (-1-1/8)	# -1.125
+# (1+3/8)	# 1.375
+```
+
+The fractional part can have signs as well. But, since a leading `-` negates the entire number, you may find the result confusing:
+
+```sh
+./rpnc '-1;-1;8'  # same as -(1-1/8)
+# (-1+1/8)	# -0.875
+```
+note that one unary minus is outside the parentheses.
+A scale can be added with one additional `;` component:
+
+```sh
+./rpnc '-1;1;8;3'  # same as -(1+1/8)×10³
+```
+outputs:
+```
+(-1-1/8)*pow(10,3)	# -1125
+```
+
+## Output
+
+The output of `rpnc` looks a bit weird perhaps (it's the default
+output style). It prints the rational representation in parentheses,
+this way it can be copied and pasted into some other formula, or
+expression. Aditionally, it also prints a floating point
+representation of the result, after a shell comment mark.
 
 But, of course, most numbers aren't nice values close to an integer:
 
@@ -204,3 +231,33 @@ implemented. In every case the result is pushed onto the stack.
 `*`
 : pops two values from the stack and multiplies them
 
+`^`
+: this pops two values, breaking the rules of _order should not matter_ (no solution found so far); pops an exponent `b`, then pops a base `a`, returns `pow(a,b)`
+
+## Powers
+
+A cool way to calculate powers without remembering an order (is the first number popped a base or an exponent?) is to use `log` and `exp`:
+
+$$
+x^y = \exp(\log(x^y)) = \exp(y \log(x))\,,
+$$
+
+Therefore:
+
+```sh
+./rpnc '2 log 3 * exp' # should be 8=2^3
+# (8)	# 8
+```
+
+Or, equivalently:
+
+```sh
+./rpnc '3 2 log * exp'
+# (8)	# 8
+```
+
+But, these are both much longer than `'2 3 ^'`.
+
+# Functions
+
+In the end, most of the functions in `math.h`, currently, a small subset. WIP
