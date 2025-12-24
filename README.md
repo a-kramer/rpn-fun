@@ -158,7 +158,7 @@ has the output:
 
 From this output, you know that the result is approximately
 $909\times10^{-3}$ (but written in C syntax). You also get a
-fractional correction term, which is smaller than $10^-3$.
+fractional correction term, which is smaller than $10^{-3}$.
 But, because this is an approximation, you also get a double-precision floating point correction term `-8.271e-7`, which indicates how well the rational fraction term has worked.
 Finally, you also see the boring result `0.909297`, rounded.
 
