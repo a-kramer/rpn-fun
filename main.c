@@ -30,6 +30,8 @@ struct number {
 	double f; // double precision correction term
 };
 
+const struct number zero = {0, 0, 1, 0, 0.0};
+
 struct stack {
 	int max;
 	int size;
@@ -44,6 +46,7 @@ struct stack stack_alloc(size_t initialAllocSize){
 	s.max=initialAllocSize;
 	s.size=0;
 	s.element=malloc(sizeof(struct number)*s.max);
+	s.element[0]=zero;
 	return s;
 }
 
@@ -277,7 +280,7 @@ struct number scale10(struct number z, int n){
 // y.n/y.d  x.a*y.n/y.d    x.n*y.n/x.d*y.d    x.f*y.n/y.d
 //  y.f    x.a*y.f            x.n*y.f/x.d        x.f*y.f
 struct number prod(struct number x, struct number y){
-	struct number z = {0,0,0,0,0.0};
+	struct number z = zero;
 	z.e = x.e + y.e;
 	z.a = x.a*y.a;
 	z.n = x.n*y.n + x.a*y.n*x.d + y.a*x.n*y.d ;
