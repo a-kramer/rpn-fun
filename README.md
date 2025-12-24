@@ -204,7 +204,7 @@ or in C code:
 x=2;  // 2
 x*=x; // 4
 x*=x; // 16
-x*=x; // 156
+x*=x; // 256
 ```
 
 The initial top of the stack is the constant `0`. So, this works:
