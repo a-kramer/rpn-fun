@@ -142,6 +142,15 @@ int gcdw(int a, int b){
 	return a|b;
 }
 
+void display_raw(struct number z){
+	printf("%i;%i;%i;%i\t# %g\n",z.a,z.n,z.d,z.e,as_double(z));
+}
+
+void display_double(struct number z){
+	int l=log10(fabs(z.f));
+	printf("%.*g\n",l,as_double(z));
+}
+
 void display_number(struct number z){
 	printf("(%i",z.a);
 	if (abs(z.n) != 0) printf(" %+i/%i",z.n,z.d);
@@ -305,7 +314,18 @@ struct number add(struct number x, struct number y){
 	return reduce(z);
 }
 
-
+struct number inverse(struct number z){
+	struct number x=z;
+	if (memcmp(&z,&one,sizeof(struct number))==0) return one;
+	if (memcmp(&z,&zero,sizeof(struct number))==0) abort();
+	if (fabs(as_double(z))==0.0) abort();
+	if (fabs(z.f)>0.0) return as_rational(1.0/as_double(z));
+	x.a=0;
+	x.n=z.d;
+	x.d=z.n+z.a*z.d;
+	x.e*=-1;
+	return reduce(x);
+}
 
 /* Absolute differece: |a-b|
  */
@@ -381,88 +401,153 @@ int is_double(char *str){
 	return 0;
 }
 
+
+
 /* Table of operators:
  * + adds the top two numbers on te stack
  * - negates the top of the stack
  * / inverts the top number: 1.0/num
  * * multiplies the top two numbers
  */
-int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
-	if (argc==1) return EXIT_FAILURE;
-	char *prog=strdup(argv[1]);
-	struct stack s = stack_alloc(32);
+
+void evaluate(struct stack *s, char *prog){
+	char *octothorpe=NULL;
+	if ((octothorpe=strchr(prog,'#'))!=NULL) *octothorpe='\0';
 	char *saveptr;
 	char *item = strtok_r(prog," ",&saveptr);
 	struct number z,a,b;
-	int i;
 	enum func fn;
 	//tests();
 	while (item){
 		if (strchr(item,';')){          /* rational number*/
 			z=reduce(read_number(item));
-			stack_push(&s,z);
+			stack_push(s,z);
 		} else if (is_double(item)){   /* floating point number */
 			z=as_rational(strtod(item,NULL));
-			stack_push(&s,z);
+			stack_push(s,z);
 		} else if (is_numeric(item)){
-			stack_push(&s,as_rational(strtol(item,NULL,0)));
+			stack_push(s,as_rational(strtol(item,NULL,0)));
 		} else if (strlen(item)>2) {    /* a function */
 			fn=match_function(item,F_NAME);
 			switch(fn){
 			case f_diff:
-				a=stack_pop(&s);
-				b=stack_pop(&s);
-				stack_push(&s,diff(a,b));
+				a=stack_pop(s);
+				b=stack_pop(s);
+				stack_push(s,diff(a,b));
 				break;
 			default:
-				a=stack_pop(&s);
+				a=stack_pop(s);
 				z=as_rational(math_h[fn](as_double(a)));
-				stack_push(&s,z);
+				stack_push(s,z);
+			}
+		} else if (strlen(item)==2){/* two-letter operators*/
+			if (strcmp("**",item)==0){
+				b=stack_pop(s);
+				a=stack_pop(s);
+				z=as_rational(pow0(as_double(a),b.a));
+				stack_push(s,z);
+			} else if (strcmp("<=",item)==0){
+				b=stack_pop(s);
+				a=stack_pop(s);
+				stack_push(s,as_rational(as_double(a)<=as_double(b)));
+			} else if (strcmp(">=",item)==0){
+				b=stack_pop(s);
+				a=stack_pop(s);
+				stack_push(s,as_rational(as_double(a)>=as_double(b)));
+			} else if (strcmp("==",item)==0){
+				b=stack_pop(s);
+				a=stack_pop(s);
+				stack_push(s,as_rational(as_double(a)==as_double(b)));
 			}
 		} else {                    /* an operator: +-^*/
 			switch(*item){
 			case '+':               /* add two numbers */
-				a=stack_pop(&s);
-				b=stack_pop(&s);
+				a=stack_pop(s);
+				b=stack_pop(s);
 				z=add(a,b);
-				stack_push(&s,z);
+				stack_push(s,z);
 				break;
 			case '-':               /* negate top number */
-				z=negate(stack_pop(&s));
-				stack_push(&s,z);
+				z=negate(stack_pop(s));
+				stack_push(s,z);
 				break;
 			case '*':
-				a=stack_pop(&s);
-				b=stack_pop(&s);
+				a=stack_pop(s);
+				b=stack_pop(s);
 				z=prod(a,b);
-				stack_push(&s,z);
+				stack_push(s,z);
 				break;
 			case '^':
-				a=stack_pop(&s);
-				b=stack_pop(&s);
-				stack_push(&s,as_rational(pow(as_double(b),as_double(a))));
+				a=stack_pop(s);
+				b=stack_pop(s);
+				stack_push(s,as_rational(pow(as_double(b),as_double(a))));
 				break;
 			case '<':
-				b=stack_pop(&s);
-				a=stack_pop(&s);
-				stack_push(&s,as_rational(as_double(a)<as_double(b)));
+				b=stack_pop(s);
+				a=stack_pop(s);
+				stack_push(s,as_rational(as_double(a)<as_double(b)));
 				break;
 			case '>':
-				b=stack_pop(&s);
-				a=stack_pop(&s);
-				stack_push(&s,as_rational(as_double(a)>as_double(b)));
+				b=stack_pop(s);
+				a=stack_pop(s);
+				stack_push(s,as_rational(as_double(a)>as_double(b)));
 				break;
 			case '=':
-				b=stack_pop(&s);
-				a=stack_pop(&s);
-				stack_push(&s,as_rational(as_double(a)==as_double(b)));
+				b=stack_pop(s);
+				a=stack_pop(s);
+				stack_push(s,as_rational(as_double(a)==as_double(b)));
+				break;
+			case '/':
+				b=stack_pop(s);
+				a=stack_pop(s);
+				stack_push(s,prod(a,inverse(b)));
+				break;
+			case '\\':
+				b=stack_pop(s);
+				a=stack_pop(s);
+				stack_push(s,prod(inverse(a),b));
+				break;
+			case '@':
+				z=stack_pop(s);
+				stack_push(s,inverse(z));
 				break;
 			}
 		}
 		item=strtok_r(NULL," ",&saveptr);
 	}
+}
+
+int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
+	if (argc==1) return EXIT_FAILURE;
+	char *prog="";
+	int j;
+	struct stack s = stack_alloc(32);
+	enum output {human, raw, flt} o=human;
+	for (j=1;j<argc;j++){
+		if (strcmp("-r",argv[j])==0){
+			o=raw;
+		} else if (strcmp("-d",argv[j])==0){
+			o=flt;
+		} else if (strcmp("-e",argv[j])==0){
+			prog=argv[j+1];
+		} else {
+			prog=argv[j];
+		}
+	}
+	evaluate(&s,prog);
+	int i;
 	for (i=0;i<s.size;i++){
-		display_number(s.element[i]);
+		switch(o){
+		case human:
+			display_number(s.element[i]);
+			break;
+		case raw:
+			display_raw(s.element[i]);
+			break;
+		case flt:
+			display_double(s.element[i]);
+			break;
+		}
 	}
 	return EXIT_SUCCESS;
 }
