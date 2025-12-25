@@ -147,8 +147,8 @@ void display_raw(struct number z){
 }
 
 void display_double(struct number z){
-	int l=log10(fabs(z.f));
-	printf("%.*g\n",l,as_double(z));
+	int l=round(log10(fabs(z.f)))-6;
+	printf("%.*g\n",l<0?-l:2,as_double(z));
 }
 
 void display_number(struct number z){

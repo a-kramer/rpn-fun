@@ -231,10 +231,61 @@ implemented. In every case the result is pushed onto the stack.
 `*`
 : pops two values from the stack and multiplies them
 
-`^`
-: this pops two values, breaking the rules of _order should not matter_ (no solution found so far); pops an exponent `b`, then pops a base `a`, returns `pow(a,b)`
+`@`
+: inverse, pops a value, then pushes the inverse of that number to the stack
 
-## Powers
+An example of `@` inversion:
+
+```sh
+./rpnc '3 @'
+(0 +1/3)  # 0.333333
+```
+
+And also for the purposes of division:
+
+```sh
+./rpnc '3 @ 3 *'
+```
+```
+(1)	# 1
+```
+
+## Binary Operators
+
+These operators break the rules about order (_order should not matter_).
+
+`^`
+: pops an exponent `b`, then pops a base `a`, returns `pow(a,b)`
+
+`**`
+: pops an exponent `b`, then pops a base `a`, returns the integer power of `a*…*a` or $\prod_{i=1}^b a$. This operator uses only the whole integer component of any number
+
+`/`
+: division, short-hand for `@` and `*` together: `${x} ${y} @ *` is `x y /`  (x/y in infix notation)
+
+`\`
+: division in reverse order: `${x} ${y} \` is the same as `${y} ${x} /`; short-hand for `${x} @ ${y} *`
+
+```sh
+./rpnc '2 3.1 ^ 2 3.1 **' | column -t -s $'\t'
+```
+```
+(8 +565/984 +7.084e-07)  # 8.57419
+(8)                      # 8
+```
+
+Division:
+
+```sh
+./rpnc '2 3 / 2 3 \'
+```
+```
+(0 +2/3)	# 0.666667
+(1 +1/2)	# 1.5
+```
+
+
+### Powers
 
 A cool way to calculate powers without remembering an order (is the first number popped a base or an exponent?) is to use `log` and `exp`:
 
