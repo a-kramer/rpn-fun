@@ -8,12 +8,14 @@ int max(int a, int b){
 	if (a>b) return a;
 	else return b;
 }
-
+struct number diff(struct number a, struct number b);
 static const int max_denominator = 1000;
 
-enum num_state {plain, inverted};
-const char *func[] = {"exp", "log", "log10", "log2", "sin", "cos", "tan", NULL};
-enum func {f_exp, f_log, f_log10, f_log2, f_sin, f_cos, f_tan, numFunctions};
+typedef double ddmap(double);
+
+const char *F_NAME[] = {"exp", "log", "log10", "log2", "sin", "cos", "tan", "sinh", "cosh", "tanh", "diff", NULL};
+enum func {f_exp, f_log, f_log10, f_log2, f_sin, f_cos, f_tan, f_sinh, f_cosh, f_tanh, f_diff, numFunctions};
+ddmap *math_h[]={exp, log, log10, log2, sin, cos, tan, sinh, cosh, tanh};
 // a number shall consist of several parts:
 // (A + N/D + f) * 10^E,
 // where A is the whole part of the number
@@ -303,6 +305,16 @@ struct number add(struct number x, struct number y){
 	return reduce(z);
 }
 
+
+
+/* Absolute differece: |a-b|
+ */
+struct number diff(struct number a, struct number b){
+	struct number d=add(a,negate(b));
+	if (as_double(d)<0) return negate(d);
+	else return d;
+}
+
 double seconds(double a, double b){
 	return (a-b)/CLOCKS_PER_SEC;
 }
@@ -340,11 +352,14 @@ void tests(){
 	printf("[%s] pow(0.9,13) = %f; pow0(0.9,13) = %f\n",__func__,pow(0.9,13),pow0(0.9,13));
 }
 
-enum func match_function(char *str){
-	int i;
-	for (i=0;i<numFunctions;i++){
-		if (strcmp(func[i],str)==0){
+int match_function(char *str, const char* functions[]){
+	int i=0;
+	while(functions && *functions){
+		if (strcmp(*functions,str)==0){
 			return i; // enums are constrained integers
+		} else {
+			functions++;
+			i++;
 		}
 	}
 	fprintf(stderr,"[%s] The string «%s» does not correspond to a known function.\n",__func__, str); abort();
@@ -392,39 +407,17 @@ int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
 		} else if (is_numeric(item)){
 			stack_push(&s,as_rational(strtol(item,NULL,0)));
 		} else if (strlen(item)>2) {    /* a function */
-			fn=match_function(item);
-			//printf("[%s] %s is function %i.\n",__func__,item,fn);
-			switch(fn){ // maybe there is a smarter way, but rational -> double -> function shoul work
-			case f_exp:
+			fn=match_function(item,F_NAME);
+			switch(fn){
+			case f_diff:
 				a=stack_pop(&s);
-				stack_push(&s,as_rational(exp(as_double(a))));
-				break;
-			case f_log:
-				a=stack_pop(&s);
-				stack_push(&s,as_rational(log(as_double(a))));
-				break;
-			case f_log10:
-				a=stack_pop(&s);
-				stack_push(&s,as_rational(log10(as_double(a))));
-				break;
-			case f_log2:
-				a=stack_pop(&s);
-				stack_push(&s,as_rational(log2(as_double(a))));
-				break;
-			case f_sin:
-				a=stack_pop(&s);
-				stack_push(&s,as_rational(sin(as_double(a))));
-				break;
-			case f_cos:
-				a=stack_pop(&s);
-				stack_push(&s,as_rational(cos(as_double(a))));
-				break;
-			case f_tan:
-				a=stack_pop(&s);
-				stack_push(&s,as_rational(tan(as_double(a))));
+				b=stack_pop(&s);
+				stack_push(&s,diff(a,b));
 				break;
 			default:
-				fprintf(stderr,"[%s] unknown function (%i)\n",__func__,fn);
+				a=stack_pop(&s);
+				z=as_rational(math_h[fn](as_double(a)));
+				stack_push(&s,z);
 			}
 		} else {                    /* an operator: +-^*/
 			switch(*item){
