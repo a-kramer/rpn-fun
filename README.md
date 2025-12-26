@@ -307,7 +307,14 @@ Or, equivalently:
 # (8)	# 8
 ```
 
-But, these are both much longer than `'2 3 ^'`.
+This, to me, is a much nicer order, with the numbers grouped apart
+from the operations; I also finc the order of operations easy to
+remeber. In this pattern, you can also deduce from the operations,
+which number represents what: it is clear to me that the `log` is
+applied to the base. This solves the order problem form exponents,
+in my opinion.
+
+On the other hand, these are both much longer than `'2 3 ^'`, or `'2 3 **'`.
 
 # Functions
 
