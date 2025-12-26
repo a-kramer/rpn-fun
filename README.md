@@ -311,4 +311,33 @@ But, these are both much longer than `'2 3 ^'`.
 
 # Functions
 
-In the end, most of the functions in `math.h`, currently, a small subset. WIP
+All functions with one argument in `math.h` are available (where the
+types are always `double`), except `pow10` (but `exp10` is, it does
+the same thing).
+
+These are not made available (yet? who knows):
+
+```c
+double      atan2(double, double);
+double      copysign(double, double);
+double      fdim(double, double);
+double      fma(double, double, double);
+double      fmax(double, double);
+double      fmin(double, double);
+double      fmod(double, double);
+double      frexp(double, int *);
+double      hypot(double, double);
+double      ldexp(double, int);
+double      modf(double, double *);
+double      nextafter(double, double);
+double      nexttoward(double, long double);
+double      pow(double, double);
+double      remainder(double, double);
+double      remquo(double, double, int *);
+double      scalbln(double, long);
+double      scalbn(double, int);
+double      drem(double, double);
+double      scalb(double, double);
+```
+
+

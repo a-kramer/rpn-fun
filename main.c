@@ -1,21 +1,22 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include "config.h"
 
 int max(int a, int b){
 	if (a>b) return a;
 	else return b;
 }
 struct number diff(struct number a, struct number b);
-static const int max_denominator = 1000;
 
 typedef double ddmap(double);
 
-const char *F_NAME[] = {"exp", "log", "log10", "log2", "sin", "cos", "tan", "sinh", "cosh", "tanh", "diff", NULL};
-enum func {f_exp, f_log, f_log10, f_log2, f_sin, f_cos, f_tan, f_sinh, f_cosh, f_tanh, f_diff, numFunctions};
-ddmap *math_h[]={exp, log, log10, log2, sin, cos, tan, sinh, cosh, tanh};
+const char *F_NAME[] = {"acos", "acosh", "asin", "asinh", "atan", "atanh", "cbrt", "ceil", "cos", "cosh", "erf", "erfc", "exp", "exp2", "expm1", "fabs", "floor", "lgamma", "log", "log10", "log1p", "log2", "logb", "nearbyint", "rint", "round", "sin", "sinh", "sqrt", "tan", "tanh", "tgamma", "trunc", "j0", "j1", "y0", "y1", "significand", "exp10", "diff", NULL};
+enum func {f_acos, f_acosh, f_asin, f_asinh, f_atan, f_atanh, f_cbrt, f_ceil, f_cos, f_cosh, f_erf, f_erfc, f_exp, f_exp2, f_expm1, f_fabs, f_floor, f_lgamma, f_log, f_log10, f_log1p, f_log2, f_logb, f_nearbyint, f_rint, f_round, f_sin, f_sinh, f_sqrt, f_tan, f_tanh, f_tgamma, f_trunc, f_j0, f_j1, f_y0, f_y1, f_significand, f_exp10, f_diff, numFunctions};
+ddmap *math_h[]={acos, acosh, asin, asinh, atan, atanh, cbrt, ceil, cos, cosh, erf, erfc, exp, exp2, expm1, fabs, floor, lgamma, log, log10, log1p, log2, logb, nearbyint, rint, round, sin, sinh, sqrt, tan, tanh, tgamma, trunc, j0, j1, y0, y1, significand, exp10};
 // a number shall consist of several parts:
 // (A + N/D + f) * 10^E,
 // where A is the whole part of the number
@@ -82,7 +83,7 @@ double frac(double a, double b){
 }
 
 double as_double(struct number z){
-	return (z.a+frac(z.n,z.d)+z.f)*pow(10.0,z.e);
+	return (z.a+frac(z.n,z.d)+z.f)*exp10(z.e);
 }
 
 /* The number format is a;n;d; */
@@ -156,7 +157,9 @@ void display_number(struct number z){
 	if (abs(z.n) != 0) printf(" %+i/%i",z.n,z.d);
 	if (fabs(z.f) > 1e-15*fabs(z.a) + 1e-15) printf(" %+.4g",z.f);
 	putchar(')');
-	if (z.e != 0) printf("*pow(10,%i)",z.e);
+	if (z.e != 0) {
+		printf(e10,z.e);
+	}
 	printf("\t# %g",as_double(z));
 	//printf("\t# gcd(n,d) = %i",gcdr(z.n,z.d));
 	putchar('\n');
@@ -175,7 +178,7 @@ struct number as_rational(double x){
 	int sign = x<0?-1:+1;
 	int l = floor(log10(fabs(x)+1e-15)/3.0)*3;
 	z.e = l;
-	double y = fabs(x)/pow(10,l);
+	double y = fabs(x)/exp10(l);
 	z.a = floor(y);
 	y -= z.a;             /* 0 <= y < 1 */
 	int a=0,b=1,c=1,d=1;
@@ -207,7 +210,7 @@ struct number as_rational(double x){
 struct number as_rational_tol(double x, double abs_tol, double rel_tol){
 	struct number z;
 	int l = floor(log10(x+1e-15)/3.0)*3;
-	x/=pow(10,l);
+	x/=exp10(l);
 	z.a = floor(x);
 	x -= z.a;
 	int a=0,b=1,c=1,d=1;
@@ -277,7 +280,7 @@ struct number reduce(struct number z){
  * returns z*pow(10,n)
  */
 struct number scale10(struct number z, int n){
-	int p10n = pow(10,n);
+	int p10n = exp10(n);
 	z.n += (z.a % p10n)*z.d;
 	z.a /= p10n;
 	z.d *= p10n;
