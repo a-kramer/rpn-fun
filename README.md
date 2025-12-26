@@ -347,4 +347,6 @@ double      drem(double, double);
 double      scalb(double, double);
 ```
 
+# TODO
 
+Make math constants from `math.h` available as `M_PI` and so forth. As no function begins with `M_` this should be easy.

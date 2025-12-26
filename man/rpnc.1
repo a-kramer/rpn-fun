@@ -1,0 +1,209 @@
+.TH rpnc 1 "2022-03-17" "0.5" "rpn-math-package"
+.SH NAME
+rpnc - reverse polish notation calculator
+.SH SYNOPSIS
+\fB rpnc \fR [-r|-d] [-e] \fI prog
+
+.SH DESCRIPTION
+.B rpnc
+is similar to the program
+.B dc
+but works with the concept of
+.I rational numbers.
+It is only as accurate as double-precision numbers, in most cases. It is not a CAS
+(it doesn't know exact algebraic equalities between expressions).
+
+All numbers have these components:
+.I (A+n/d+f)*10^E
+where
+.I A,
+.I n,
+.I d,
+and
+.I E
+are all integers. Numbers can be entered as integers (base determined by
+.I strtol
+), e.g.: 1, 0xf, 0777;
+as floating point values, e.g.: 1e3, 1.0;
+or as rational numbers (a semi-colon separated list A;n;d;E), e.g.: 1;2;3 is one and two thirds (all components, except
+.I A
+are optional). Whenever a floating point value is entered, it is approximated by a rational number (max determinant of approximation can be set in
+.I config.h
+); the number component
+.I f
+is used as a small corrector term, to retain the exact entered value.
+
+The main argument of rpnc is a small arithmetic program
+.I prog
+in space-separated Reverse Polish Notation (i.e. this is a program that thinks in stack form). One important difference to
+.B dc
+is that the stack can never run empty, the last item persists. It is initialized with 0.
+
+The program recognizes all math functions with one argument in math.h:
+.I double
+.B func
+.I (double);
+
+
+Some options can be set during compilation, in
+.I config.h
+.
+
+.SH Unary Operators
+
+There is no binary minus. These two unary operators are available:
+
+.TP
+-
+negates the top of the stack
+
+.TP
+@
+pops a value
+.I x
+from the stack, then pushes its arithmetic reciprocal value
+.I (1/x)
+to the stack (if rational, then exact).
+
+.SH Binary Operators
+.TP
++
+pops two numbers, pushes their sum to the stack
+
+.TP
+*
+pops two numbers, pushes their product to the stack
+
+.TP
+/
+pops two numbers, then pushes second number popped divided by the first number popped top the stack (\\ does the revers order division)
+
+.TP
+\\
+pops two numbers, then pushes first number popped divided by the second number popped to the stack (reverse order compared to /)
+
+.TP
+^
+pops two numbers, first an exponent, then a base, pushes base to the power of exponent to the stack
+
+.TP
+**
+integer exponentiation -- pops two numbers from the stack, first an exponent, then a base; this operator uses only the integer component A, not the fractional component, as exponent (like repeated multiplication).
+
+.SH Functions
+
+In addition to the functions in math.h, there is also
+
+.TP
+.B diff
+Calculates the absolute difference between the top two numbers on the stack.
+
+.SH EXAMPLES
+
+.B Numbers:
+.EX
+$ rpnc '3.14159265358979 1;2;3 -3 0xa 0777' | column -t -s $'\\t'
+(3 +16/113 -2.668e-07)  # 3.14159
+(1 +2/3)                # 1.66667
+(-3)                    # -3
+(10)                    # 10
+(511)                   # 511
+.EE
+where 3 and 16/113 is the famous 355/113 approximation of pi.
+
+.B Basic arithmetic:
+.EX
+$ rpnc '1 2.5 +'
+(3 +1/2)	# 3.5
+
+$ rpnc '0;1;3 3 *'
+(1)	# 1
+
+$ rpnc '0;355;113 3.14159265358979 diff'
+(0 +2.668e-07)	# 2.66764e-07
+
+$ rpnc '2 3 / 2 3 \\'
+(0 +2/3)	# 0.666667
+(1 +1/2)	# 1.5
+.EE
+
+.B Arithmetic difference: negate top with - then add
+.EX
+$ rpnc '3 7 - +'
+(-4)	# -4
+.EE
+
+.B Math Functions:
+.EX
+$ rpnc '1 exp'
+(2 +385/536 -1.754e-06)	# 2.71828
+.EE
+
+.B Powers, 2 to the power of 10 in this case:
+.EX
+$ rpnc '10 2 log * exp'            # any power
+(1 +3/125)*pow(10,3)               # 1024
+
+$ rpnc '2 10.3 ^'                  # any power
+(1 +128/491 -5.851e-07)*pow(10,3)  # 1260.69
+
+$ rpnc '2 10.3 **'                 # integer powers
+(1 +3/125)*pow(10,3)               # 1024
+.EE
+
+.B The stack is never empty:
+.EX
+$ rpnc '+'
+(0)	# 0
+$ rpnc '2 *'
+(4)	# 4
+$ rpnc '0;1;9 * *'
+(0 +1/6561)	# 0.000152416
+.EE
+
+.B The value of cos(pi/4) is 1/sqrt(2)
+.EX
+$ rpnc '0;355;113 4 @ * cos'
+(707 +84/787 -4.057e-07)*pow(10,-3)	# 0.707107
+
+$ rpnc '2 @ sqrt'
+(707 +74/693 -9.202e-07)*pow(10,-3)	# 0.707107
+
+$ rpnc '0;1;2 sqrt acos 3.14158965358979 0;1;4 * diff'
+(0 -5/73789 +0.0008178)*pow(10,-3)	# 7.5e-07
+.EE
+
+the last result is only approximately 0, as we have only an approximation of
+pi (in any case, rational or double-precision). In this example block, we used both the @ operator as well as rational notation (;) to obtain fractions like a
+.I quarter.
+
+.B Rational Output:
+.EX
+$ rpnc -r '2 @ sqrt' | sed 's/#.*$//' | awk -F';' '{printf("\\\\left(%i + \\\\frac{%i}{%i}\\\\right)\\\\times 10^{%i}\\n",$1,$2,$3,$4)}'
+\\left(707 + \\frac{74}{693}\\right)\\times 10^{-3}
+.EE
+
+Here, we also demonstrate post-processing with
+.B sed
+and
+.B awk.
+
+.B Boring Output:
+.EX
+$ rpnc -d '2 @ sqrt'
+0.707106781187
+.EE
+
+.SH OPTIONS
+.TP
+-r
+switches output to rational: A;n;d;E, a semi-colon separated list, ideal for processing with awk. This will drop all correction terms
+.I f.
+
+.TP
+-d
+switches output to only print a double-precision floating point value with %g as format.
+
+.TP
+-e \fI prog \fR
+used to pass a program to rpnc in a similar way as with dc, this does nothing (currently).
