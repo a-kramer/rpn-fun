@@ -381,3 +381,8 @@ double      scalb(double, double);
 # TODO
 
 Make math constants from `math.h` available as `M_PI` and so forth. As no function begins with `M_` this should be easy.
+
+- Rationals should be allowed to omit the leading value, like this: `;1;3` for 1/3.
+   + This should perhaps also work: `;;3` for 1/3, where the 1 is implied.
+   + Perhaps even `;;;2` for $(0+\dfrac{1}{1})\times 10^2$
+- Integer powers should be allowed for negative powers, e.g.: `2 -3 **`
