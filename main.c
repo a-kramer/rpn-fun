@@ -340,38 +340,6 @@ double seconds(double a, double b){
 	return (a-b)/CLOCKS_PER_SEC;
 }
 
-void tests(){
-	int a=5*7;
-	int b=8*7;
-	int i,g=0;
-	int N=12;
-	clock_t c[2];
-
-	printf("[%s] gcdr(%i,%i) = %i\n",__func__,a,b,gcdr(a,b));
-	printf("[%s] gcdw(%i,%i) = %i\n",__func__,a,b,gcdw(a,b));
-
-	c[0] = clock();
-	srand(1337);
-	for (i=0;i<N;i++){
-		a=rand();
-		b=rand();
-		g+=gcdr(a,b);
-	}
-	c[1]=clock();
-	printf("[%s] time %i×gcdr(a,b): %f s (sum: %i)\n",__func__,N,seconds(c[1],c[0]),g);
-	g=0;
-	c[0] = clock();
-	srand(1337);
-	for (i=0;i<N;i++){
-		a=rand();
-		b=rand();
-		g+=gcdw(a,b);
-	}
-	c[1]=clock();
-	printf("[%s] time %i×gcdw(a,b): %f s (sum: %i)\n",__func__,N,seconds(c[1],c[0]),g);
-	// powers
-	printf("[%s] pow(0.9,13) = %f; pow0(0.9,13) = %f\n",__func__,pow(0.9,13),pow0(0.9,13));
-}
 
 double constant(const char *Q){
 	const char *name[]={"M_E", "M_LOG2E", "M_LOG10E", "M_LN2", "M_LN10", "M_PI", "M_PI_2", "M_PI_4", "M_1_PI", "M_2_PI", "M_2_SQRTPI", "M_SQRT2", "M_SQRT1_2", NULL};
@@ -427,7 +395,6 @@ void evaluate(struct stack *s, char *prog){
 	char *item = strtok_r(prog," ",&saveptr);
 	struct number z,a,b;
 	enum func fn;
-	//tests();
 	while (item){
 		if (strchr(item,';')){          /* rational number*/
 			z=reduce(read_number(item));
