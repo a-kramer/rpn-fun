@@ -397,12 +397,3 @@ M_2_SQRTPI
 M_SQRT2
 M_SQRT1_2
 ```
-
-# TODO
-
-Perhaps also make science constants from the GNU Scientific Library available as well?
-
-- Rationals should be allowed to omit the leading value, like this: `;1;3` for 1/3.
-   + This should perhaps also work: `;;3` for 1/3, where the 1 is implied.
-   + Perhaps even `;;;2` for $(0+1/1)\times 10^2$
-- Integer powers should be allowed for negative powers, e.g.: `2 -3 **`
