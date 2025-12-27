@@ -242,10 +242,10 @@ struct number as_rational_tol(double x, double abs_tol, double rel_tol){
 //
 // calculates a = b**n; integer exponentiation
 // n>=0
-double pow0(double b, unsigned long n){
-	int sign=b<0?-1:1;
-	b*=sign;
-	double a=1;
+double pow0(double b, long n){
+	short sign=n<0?-1:1;
+	n*=sign;
+	double a=1.0;
 	if (n==0) return 1.0;
 	while (n){
 		if (n&1) a*=b;
