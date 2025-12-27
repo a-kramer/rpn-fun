@@ -3,7 +3,7 @@
 I always found reverse polish notation quite fun, it's easy to parse,
 and one does not need to count parentheses.
 
-There is program called `dc`, which i like a lot. I never use its
+There is a program called `dc`, which i like a lot. I never use its
 advanced features (e.g. registers) and I am always a bit disappointed
 that it doesn't have the functions from the math library (`math.h`).
 
@@ -17,9 +17,15 @@ has no result, you _have_ to write `p` for print. And for some reason this is th
 
 ```sh
 dc -e '1.2 2.3 + p'
-# 3.5
+```
+```
+3.5
+```
+```sh
 dc -e '1.2 2.3 / p'
-# 0
+```
+```
+0
 ```
 
 ... mysterious.
@@ -28,7 +34,9 @@ For some reason, we must fix this by providing a _precision_ (with _k_ for _prec
 
 ```sh
 dc -e '4 k 1.2 2.3 / p'
-# .5217
+```
+```
+.5217
 ```
 
 On the other hand, `dc` also has fancy operations like `~` which does both integer
@@ -44,7 +52,9 @@ But, this convention is not carried over to the output of `dc`:
 
 ```sh
 dc -e '3 _8 + p'
-# -5                   ... not _5
+```
+```sh
+-5                 #  ... not _5
 ```
 
 And thus:
@@ -60,7 +70,9 @@ You have to do this:
 
 ```bash
 dc -e "${x/-/_} 3 + p"
-# -2
+```
+```sh
+-2
 ```
 
 # Goals
@@ -100,107 +112,122 @@ when needed.
 
 ## Rational Numbers $\mathbb{Q}$
 
-This program will treat numbers as _rational numbers_, using this special notation: `1;2;3`, which is interpreted as:
+This program treats all values as _rational numbers_ (at least
+approximately), using this special notation: `1;2;3` (semi-colon separated list). It is
+interpreted as:
 
 $$
 1\frac{2}{3} := 1 + \frac{2}{3}
 $$
 
-This means that:
+All of these components are retained in the internal representation:
 
 ```sh
 ./rpnc '1;1;3 1;2;3 +'
-# (3)	# 3
+```
+```sh
+(3)	# 3
 ```
 
 A leading `-` will negate the entire number:
 
 ```sh
 ./rpnc '-1;1;8 1;1;8'
-# (-1-1/8)	# -1.125
-# (1+3/8)	# 1.375
+```
+```sh
+(-1-1/8)	# -1.125
+(1+3/8)	# 1.375
 ```
 
-The fractional part can have signs as well. But, since a leading `-` negates the entire number, you may find the result confusing:
+The fractional part can have signs as well (please avoid using it).
+Since a leading `-` negates the entire number, you may find the result confusing:
 
 ```sh
-./rpnc '-1;-1;8'  # same as -(1-1/8)
-# (-1+1/8)	# -0.875
+./rpnc '-1;-1;8'  # same as -(1-1/8)  ...bad
 ```
-note that one unary minus is outside the parentheses.
+```sh
+(-1+1/8)	# -0.875
+```
+note that the leading minus in `-(1-1/8)` is outside the parentheses.
 A scale can be added with one additional `;` component:
 
 ```sh
 ./rpnc '-1;1;8;3'  # same as -(1+1/8)×10³
 ```
 outputs:
-```
+```sh
 (-1-1/8)*pow(10,3)	# -1125
 ```
 
 ## Output
 
-The output of `rpnc` looks a bit weird perhaps (it's the default
+The output of `rpnc` looks a bit peculiar perhaps (it's the default
 output style). It prints the rational representation in parentheses,
 this way it can be copied and pasted into some other formula, or
 expression. Aditionally, it also prints a floating point
 representation of the result, after a shell comment mark.
 
-But, of course, most numbers aren't nice values close to an integer:
+Of course, most numbers aren't nice values, close to an integer:
 
 ```sh
 ./rpnc '2 sin' # sin(2)
 ```
-has the output:
+has output that includes a correction $f$:
 ```sh
 (909 + 185/622 -8.271e-07)*pow(10,-3)	# 0.909297
 ```
 
-From this output, you know that the result is approximately
-$909\times10^{-3}$ (but written in C syntax). You also get a
-fractional correction term, which is smaller than $10^{-3}$.
-But, because this is an approximation, you also get a double-precision floating point correction term `-8.271e-7`, which indicates how well the rational fraction term has worked.
-Finally, you also see the boring result `0.909297`, rounded.
+From this output, we know that the result is approximately
+$909\times10^{-3}$ (but written in C syntax). We also get a fractional
+term $185/622$, which is smaller than $1$ (and ultimately smaller than
+$10^{-3}$ after multiplication with the _scale_ factor).
 
-When reading in numbers, the program does the same approximation when
-necessary:
+Because this _is_ an approximation, we also get a double-precision
+floating point correction term `-8.271e-7`, which indicates how well
+the rational fraction term has worked out.
+
+Finally, we also see the boring result `0.909297` (rounded).
+
+When reading numbers, the program does the same approximation (when
+necessary):
 
 ```bash
 ./rpnc '1 1.e-3 1.e4 3.141592653589' | column -t -s $'\t'
 ```
 which contains no operators or functions, so it just prints what it read:
-```
+```sh
 (1)                      # 1
 (1)*pow(10,-3)           # 0.001
 (10)*pow(10,3)           # 10000
 (3 + 16/113 -2.668e-07)  # 3.14159
 ```
 
-So, to summarize, each number has 4 meaningful components:
+To summarize, each number has 5 meaningful components:
 
 $$
 x := \left(A+\frac{n}{d}+f\right)\times 10^{E}
 $$
 
-where $f$ is an optional floating point (`double`) correction term (if
-needed), and $E$ a _scale_ (exponent to the base 10). When converting
-to this format, we try to create E in multiples of three.
+where $f$ is an optional _floating point_ (`double`) correction term,
+and $E$ a _scale_ (exponent to the base 10). When converting to this
+format, we try to create $E$ in multiples of three. But users may
+enter any combination of `A;n;d;E` (e.g. `0;355;113` as an approximation of $\pi$).
 
 # Stack Empty Problem
 
 The last value on the stack, cannot be removed. Thus,
 
 ```sh
-./rpnc '2 * * *' # pops 2 and then 2 again, multiplies them, pushes onto stack
+./rpnc '2 * * *' # pops 2 and then 2 again, multiplies them, pushes onto stack, etc.
 ```
 will print:
-```
+```sh
 (256)   # 256
 ```
 that is: `((2*2)*(2*2))*((2*2)*(2*2)) = 2^8`
 or in C code:
 
-```c
+```C
 x=2;  // 2
 x*=x; // 4
 x*=x; // 16
@@ -213,13 +240,15 @@ The initial top of the stack is the constant `0`. So, this works:
 ./rpnc 'cos'      # should be 1
 ```
 returns the cosine of 0:
-```
+```sh
 (1)     # 1
 ```
 
+Pushing a value onto the stack replaces the initial `0` as the top value.
+
 # Operators
 
-These is an incomplete list of operators, more will be added when
+This is an incomplete list of operators, more will be added when
 implemented. In every case the result is pushed onto the stack.
 
 `+`
@@ -238,6 +267,8 @@ An example of `@` inversion:
 
 ```sh
 ./rpnc '3 @'
+```
+```sh
 (0 +1/3)  # 0.333333
 ```
 
@@ -246,7 +277,7 @@ And also for the purposes of division:
 ```sh
 ./rpnc '3 @ 3 *'
 ```
-```
+```sh
 (1)	# 1
 ```
 
