@@ -171,10 +171,13 @@ $ rpnc '2 @ sqrt'
 
 $ rpnc '0;1;2 sqrt acos 3.14158965358979 0;1;4 * diff'
 (0 -5/73789 +0.0008178)*pow(10,-3)	# 7.5e-07
+
+$ rpnc 'M_PI 0;1;4 * cos 0;1;2 sqrt diff'
+(0)*pow(10,-3)	# 0
 .EE
 
-the last result is only approximately 0, as we have only an approximation of
-pi (in any case, rational or double-precision). In this example block, we used both the @ operator as well as rational notation (;) to obtain fractions like a
+In this example block, we used both the @ operator as well as rational
+notation (;) to obtain fractions like a
 .I quarter.
 
 .B Rational Output:

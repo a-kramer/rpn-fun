@@ -378,11 +378,31 @@ double      drem(double, double);
 double      scalb(double, double);
 ```
 
+# Constants
+
+Mathematical constants from `math.h` such as `M_PI` can be used as well:
+
+```C
+M_E
+M_LOG2E
+M_LOG10E
+M_LN2
+M_LN10
+M_PI
+M_PI_2
+M_PI_4
+M_1_PI
+M_2_PI
+M_2_SQRTPI
+M_SQRT2
+M_SQRT1_2
+```
+
 # TODO
 
-Make math constants from `math.h` available as `M_PI` and so forth. As no function begins with `M_` this should be easy.
+Perhaps also make science constants from the GNU Scientific Library available as well?
 
 - Rationals should be allowed to omit the leading value, like this: `;1;3` for 1/3.
    + This should perhaps also work: `;;3` for 1/3, where the 1 is implied.
-   + Perhaps even `;;;2` for $(0+{1}/{1})\times 10^2$
+   + Perhaps even `;;;2` for $(0+1/1)\times 10^2$
 - Integer powers should be allowed for negative powers, e.g.: `2 -3 **`

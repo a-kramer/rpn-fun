@@ -375,6 +375,15 @@ void tests(){
 	printf("[%s] pow(0.9,13) = %f; pow0(0.9,13) = %f\n",__func__,pow(0.9,13),pow0(0.9,13));
 }
 
+double constant(const char *Q){
+	const char *name[]={"M_E", "M_LOG2E", "M_LOG10E", "M_LN2", "M_LN10", "M_PI", "M_PI_2", "M_PI_4", "M_1_PI", "M_2_PI", "M_2_SQRTPI", "M_SQRT2", "M_SQRT1_2", NULL};
+	const double value[]= {M_E, M_LOG2E, M_LOG10E, M_LN2, M_LN10, M_PI, M_PI_2, M_PI_4, M_1_PI, M_2_PI, M_2_SQRTPI, M_SQRT2, M_SQRT1_2};
+	int i=0;
+	while (name[i] && strcmp(Q,name[i])) i++;
+	if (name[i]) return value[i];
+	else return NAN;
+}
+
 int match_function(char *str, const char* functions[]){
 	int i=0;
 	while(functions && *functions){
@@ -425,7 +434,10 @@ void evaluate(struct stack *s, char *prog){
 		if (strchr(item,';')){          /* rational number*/
 			z=reduce(read_number(item));
 			stack_push(s,z);
-		} else if (is_double(item)){   /* floating point number */
+		} else if (*item=='M'){          /* mathematical constant */
+			z=as_rational(constant(item));
+			stack_push(s,z);
+		} else if (is_double(item)){    /* floating point number */
 			z=as_rational(strtod(item,NULL));
 			stack_push(s,z);
 		} else if (is_numeric(item)){
