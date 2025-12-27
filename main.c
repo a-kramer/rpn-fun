@@ -88,20 +88,18 @@ double as_double(struct number z){
 
 /* The number format is a;n;d; */
 struct number read_number(const char *str){
-	struct number z;
+	struct number z=zero;
 	char *eptr;
 	const char *p = str;
-	/* defaults */
-	z.n = 1;
-	z.d = 1;
-	z.e = 0;
-	z.f = 0.0;
 	/* mandatory */
-	z.a = strtol(p,&eptr,10);
-	//printf("   p='%s' (%p)\n",p,p);
-	//printf("eptr='%s' (%p)\n",eptr,eptr);
-	if (p == eptr) return z;
-	else p=eptr;
+	if (*str != ';') {
+		z.a = strtol(p,&eptr,10);
+		if (p == eptr) return z;
+		else p=eptr;
+	} else {
+		str++;
+	}
+
 	/* optional */
 	if (*p==';') {
 		z.n = (z.a<0?-1:1)*strtol(++p,&eptr,10);
