@@ -25,9 +25,8 @@ are all integers. Numbers can be entered as integers (base determined by
 .I strtol
 ), e.g.: 1, 0xf, 0777;
 as floating point values, e.g.: 1e3, 1.0;
-or as rational numbers (a semi-colon separated list A;n;d;E), e.g.: 1;2;3 is one and two thirds (all components, except
-.I A
-are optional). Whenever a floating point value is entered, it is approximated by a rational number (max determinant of approximation can be set in
+or as rational numbers (a semi-colon separated list A;n;d;E), e.g.: 1;2;3 is one and two thirds. There are some defaults when reading rational numbers: ';' means 0, ';1;2' is 0.5.
+Whenever a floating point value is entered, it is approximated by a rational number (max determinant of approximation can be set in
 .I config.h
 ); the number component
 .I f
@@ -179,6 +178,12 @@ $ rpnc 'M_PI 0;1;4 * cos 0;1;2 sqrt diff'
 In this example block, we used both the @ operator as well as rational
 notation (;) to obtain fractions like a
 .I quarter.
+
+But, there is also a way to write this without doing many operations, using constants:
+.EX
+$ rpnc 'M_PI_4 cos M_SQRT1_2 diff'
+(0)*pow(10,-3)	# 0
+.EE
 
 .B Rational Output:
 .EX
