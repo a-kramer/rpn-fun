@@ -384,7 +384,7 @@ double      scalb(double, double);
 
 Mathematical constants from `math.h` such as `M_PI` can be used as well:
 
-```C
+```
 M_E
 M_LOG2E
 M_LOG10E
