@@ -3,7 +3,7 @@ CFLAGS = -O2 -march=native -std=gnu23
 PREFIX = /usr/local/bin
 MANPREFIX = /usr/local/man/man1
 
-.PHONY: all install manual uninstall
+.PHONY: all install manual uninstall test
 
 
 all: rpnc
@@ -20,3 +20,6 @@ uninstall:
 
 manual: man/rpnc.1
 	[ -d $(MANPREFIX) ] || mkdir $(MANPREFIX) && install $^ $(MANPREFIX) && gzip -f $(MANPREFIX)/rpnc.1
+
+test: tests/rpnc.sh
+	@prove $^

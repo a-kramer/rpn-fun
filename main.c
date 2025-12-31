@@ -89,25 +89,28 @@ double as_double(struct number z){
 /* The number format is a;n;d; */
 struct number read_number(const char *str){
 	struct number z=zero;
-	char *eptr;
+	char *eptr=NULL;
 	const char *p = str;
 	/* mandatory */
-	if (*str != ';') {
-		z.a = strtol(p,&eptr,10);
+	if (*p != ';') {
+		z.a = strtol(p,&eptr,0);
 		if (p == eptr) return z;
 		else p=eptr;
-	} else {
-		str++;
 	}
-
 	/* optional */
-	if (*p==';') {
-		z.n = (z.a<0?-1:1)*strtol(++p,&eptr,10);
+	if (*p==';' && *(p+1)!=';') {
+		z.n = (z.a<0?-1:1)*strtol(++p,&eptr,0);
+		if (p==eptr) return z;
+		else p=eptr;
+	} else {
+		p++;
 	}
-	if (p == eptr) return z;
-	else p=eptr;
-	if (*p==';') {
-		z.d = strtol(++p,&eptr,10);
+	if (*p==';' && *(p+1)!=';') {
+		z.d = strtol(++p,&eptr,0);
+		if (p==eptr) return z;
+		else p=eptr;
+	} else {
+		p++;
 	}
 	if (z.d < 0){
 		z.d*=-1;
@@ -120,10 +123,8 @@ struct number read_number(const char *str){
 		z.a -= z.n/z.d;
 		z.n %= z.d;
 	}
-	if (p == eptr) return z;
-	else p=eptr;
 	if (*p==';') {
-		z.e = strtol(++p,&eptr,10);
+		z.e = strtol(++p,&eptr,0);
 	}
 	return z;
 }

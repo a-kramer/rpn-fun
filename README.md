@@ -59,11 +59,13 @@ dc -e '3 _8 + p'
 
 And thus:
 
-```bash
+```sh
 x=$(dc -e '3 _8 + p')
 dc -e "${x} 3 + p"
+```
+```sh
 # dc: stack empty
-# 8
+8
 ```
 
 You have to do this:
