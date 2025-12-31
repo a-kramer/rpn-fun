@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O2 -march=native -std=gnu23
+CFLAGS = -O2 -march=native
 PREFIX = /usr/local/bin
 MANPREFIX = /usr/local/man/man1
 
