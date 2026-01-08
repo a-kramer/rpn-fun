@@ -111,6 +111,12 @@ But, perhaps what people need from a quick command line tool, is a
 calculation that is integer-like, when sufficient, and not integer
 when needed.
 
+The _integer_ ($\mathbb{Z}$) part of the number is currently stored as a `long` (at least 10 decimal places). 
+
+When reading rational numbers (like `1;2;3;4`), and the first item
+(the integer part) is too large for `long` the read is re-tried as
+`double`. This is a crude workaround for the mean-time, with loss of accuracy.
+
 
 ## Rational Numbers $\mathbb{Q}$
 
@@ -354,6 +360,38 @@ On the other hand, these are both much longer than `'2 3 ^'`, or `'2 3 **'`.
 All functions with one argument in `math.h` are available (where the
 types are always `double`), except `pow10` (but `exp10` is, it does
 the same thing).
+
+```
+double      acos(double);
+double      acosh(double);
+double      asin(double);
+double      asinh(double);
+double      atan(double);
+double      atanh(double);
+double      cbrt(double);
+double      ceil(double);
+double      cos(double);
+double      cosh(double);
+double      erf(double);
+double      erfc(double);
+double      exp(double);
+double      fabs(double);
+double      floor(double);
+double      lgamma(double);
+double      log(double);
+double      logb(double);
+double      nearbyint(double);
+double      rint(double);
+double      round(double);
+double      sin(double);
+double      sinh(double);
+double      sqrt(double);
+double      tan(double);
+double      tanh(double);
+double      tgamma(double);
+double      trunc(double);
+double      significand(double);
+```
 
 These are not made available (yet? who knows):
 

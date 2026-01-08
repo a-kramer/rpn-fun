@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <limits.h>
 #include "config.h"
 
 int max(int a, int b){
@@ -26,9 +27,9 @@ ddmap *math_h[]={acos, acosh, asin, asinh, atan, atanh, cbrt, ceil, cos, cosh, e
 //     in case the rational representation is not precise enough.
 // - u is the uncertainty of the number, defaults to 0.5/D
 struct number {
-	int a; // whole part
-	int n; // numerator
-	int d; // denominator
+	long a; // whole part
+	short n; // numerator
+	short d; // denominator
 	int e; // base-10 exponent scale
 	double f; // double precision correction term
 };
@@ -91,9 +92,20 @@ struct number read_number(const char *str){
 	struct number z=zero;
 	char *eptr=NULL;
 	const char *p = str;
+	double g,l;
+	int status = 0; /* no approximation yet */
 	/* mandatory */
 	if (*p != ';') {
 		z.a = strtol(p,&eptr,0);
+		if (z.a == LONG_MAX || z.a == LONG_MIN) {
+			// little fix for very large numbers
+			g = strtod(p,NULL);
+			l = round(log10(g)) + (g>0?-15:15);
+			z.e += (int) l;
+			z.a = (long) (g*exp10(-l));
+			z.f += 1.0;
+			status++;
+		}
 		if (p == eptr) return z;
 		else p=eptr;
 	}
@@ -116,6 +128,12 @@ struct number read_number(const char *str){
 		z.d*=-1;
 		z.n*=-1;
 	}
+	// If z.a was too big a number, the fractional part doesn't matter anymore
+	if (status>0){ // approximation necessary
+		z.f += frac(z.n,z.d)*exp10(-z.e);
+		z.n=0;
+		z.d=1;
+	}
 	if (fabs(z.n)>z.d && z.n>0) {
 		z.a += z.n/z.d;
 		z.n %= z.d;
@@ -124,7 +142,7 @@ struct number read_number(const char *str){
 		z.n %= z.d;
 	}
 	if (*p==';') {
-		z.e = strtol(++p,&eptr,0);
+		z.e += strtol(++p,&eptr,0);
 	}
 	return z;
 }
@@ -143,7 +161,7 @@ int gcdw(int a, int b){
 }
 
 void display_raw(struct number z){
-	printf("%i;%i;%i;%i\t# %g\n",z.a,z.n,z.d,z.e,as_double(z));
+	printf("%li;%i;%i;%i\t# %g\n",z.a,z.n,z.d,z.e,as_double(z));
 }
 
 void display_double(struct number z){
@@ -152,9 +170,9 @@ void display_double(struct number z){
 }
 
 void display_number(struct number z){
-	printf("(%i",z.a);
+	printf("(%li",z.a);
 	if (abs(z.n) != 0) printf(" %+i/%i",z.n,z.d);
-	if (fabs(z.f) > 1e-15*fabs(z.a) + 1e-15) printf(" %+.4g",z.f);
+	if (fabs(z.f) != 0.0) printf(" %+.4g",z.f);
 	putchar(')');
 	if (z.e != 0) {
 		printf(e10,z.e);
@@ -184,7 +202,6 @@ struct number as_rational(double x){
 	double pq;
 	while (b+d < max_denominator){
 		pq=frac(a+c,b+d);
-		//fprintf(stderr,"[%s] b+d=%i",__func__,b+d);
 		if (pq <= y && y <= frac(c,d)){
 			a+=c;
 			b+=d;
