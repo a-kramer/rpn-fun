@@ -103,7 +103,7 @@ struct number read_number(const char *str){
 			l = round(log10(g)) + (g>0?-15:15);
 			z.e += (int) l;
 			z.a = (long) (g*exp10(-l));
-			z.f += 1.0;
+			z.f += (g - z.a*exp10(z.e))*exp10(-z.e);
 			status++;
 		}
 		if (p == eptr) return z;
@@ -134,7 +134,7 @@ struct number read_number(const char *str){
 		z.n=0;
 		z.d=1;
 	}
-	if (fabs(z.n)>z.d && z.n>0) {
+	if (fabs(z.n)>z.d && z.n>0 && status==0) {
 		z.a += z.n/z.d;
 		z.n %= z.d;
 	} else if (fabs(z.n)>z.d && z.n<0) {
