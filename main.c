@@ -112,9 +112,9 @@ struct number read_number(const char *str){
 				z.e = w;
 				status=approximate;
 			} else {
+				z.f = strtod(p+16+(p[0]=='-'),NULL)*exp10(-w)*(g>0?1:-1);
+				z.a = floor(fabs(g)*exp10(-w))*(g>0?1:-1);
 				z.e += (int) w;
-				z.a = (fabs(g)*exp10(-w)) * (g>0?1:-1);
-				z.f += (g*exp10(-z.e) - z.a);
 				status=approximate;
 			}
 		}
@@ -142,7 +142,6 @@ struct number read_number(const char *str){
 	} else {
 		p++;
 	}
-
 	if (z.d < 0){
 		z.d*=-1;
 		z.n*=-1;
@@ -174,7 +173,9 @@ int gcdw(int a, int b){
 }
 
 void display_raw(struct number z){
-	printf("%li;%i;%i;%i\t# %g\n",z.a,z.n,z.d,z.e,as_double(z));
+	printf("%li;%i;%i;%i\t",z.a,z.n,z.d,z.e);
+	if (z.f!=0.0) printf("# correction (f): %+.15g",z.f);
+	putchar('\n');
 }
 
 void display_double(struct number z){
@@ -420,8 +421,6 @@ int is_double(const char *str){
  */
 
 void evaluate(struct stack *s, char *prog){
-	char *octothorpe=NULL;
-	if ((octothorpe=strchr(prog,'#'))!=NULL) *octothorpe='\0';
 	char *saveptr;
 	char *item = strtok_r(prog," ",&saveptr);
 	struct number z,a,b;
@@ -437,7 +436,7 @@ void evaluate(struct stack *s, char *prog){
 			z=as_rational(strtod(item,NULL));
 			stack_push(s,z);
 		} else if (is_numeric(item)){
-			stack_push(s,as_rational(strtol(item,NULL,0)));
+			stack_push(s,read_number(item));
 		} else if (strlen(item)>2) {    /* a function */
 			fn=match_function(item,F_NAME);
 			switch(fn){
@@ -531,6 +530,7 @@ void evaluate(struct stack *s, char *prog){
 int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
 	if (argc==1) return EXIT_FAILURE;
 	char *prog="";
+	char *octothorpe=NULL;
 	int j;
 	struct stack s = stack_alloc(32);
 	enum output {human, raw, flt} o=human;
@@ -542,10 +542,11 @@ int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
 		} else if (strcmp("-e",argv[j])==0){
 			prog=argv[j+1];
 		} else {
-			prog=argv[j];
+			prog=strdup(argv[j]);
+			if ((octothorpe=strchr(prog,'#'))!=NULL) *octothorpe='\0';
+			evaluate(&s,prog);
 		}
 	}
-	evaluate(&s,prog);
 	int i;
 	for (i=0;i<s.size;i++){
 		switch(o){

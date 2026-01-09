@@ -102,21 +102,6 @@ These are the aspirational goals:
 
 The following sections explain how I address these goals, if I found a way.
 
-# Precision
-
-This program is not _arbitrary precision_, increasing the precision
-may become a goal later on.
-
-But, perhaps what people need from a quick command line tool, is a
-calculation that is integer-like, when sufficient, and not integer
-when needed.
-
-The _integer_ ($\mathbb{Z}$) part of the number is currently stored as a `long` (at least 10 decimal places). 
-
-When reading rational numbers (like `1;2;3;4`), and the first item
-(the integer part) is too large for `long` the read is re-tried as
-`double`. This is a crude workaround for the mean-time, with loss of accuracy.
-
 
 ## Rational Numbers $\mathbb{Q}$
 
@@ -437,3 +422,63 @@ M_2_SQRTPI
 M_SQRT2
 M_SQRT1_2
 ```
+
+# Precision
+
+This program is not _arbitrary precision_, increasing the precision
+may become a goal later on.
+
+But, perhaps what people need from a quick command line tool, is a
+calculation that is integer-like, when sufficient, and not integer
+when needed.
+
+The _integer_ ($\mathbb{Z}$) part of the number is currently stored as a `long` (at least 10 decimal places). 
+
+When reading rational numbers (like `1;2;3;4`), and the first item
+(the integer part) is too large for `long` the read is re-tried as
+`double`. This is a crude workaround, with loss of accuracy, of course.
+
+There is an in-between solution for numbers that just barely don't fit into `long`: the last few digits of the number are stored in the fraction part of the number (the trailing `;` triggers the reading of a rational):
+
+```sh
+./rpnc  '12345678901234567891;'
+```
+```sh
+(1234567890123456 +7891/10000)*pow(10,4)        # 1.23457e+19
+```
+
+The entire number is split up, stored separately and scaled by an appropriate exponent.
+
+If the input already contains a fractional part, then the extra bit is shifted into the correction part of the number:
+
+```sh
+./rpnc  '12345678901234567891;1;3'
+```
+```sh
+(1234567890123456 +1/30000 +0.7891)*pow(10,4)   # 1.23457e+19
+```
+
+Not sure how helpful this is to anyone.
+Provided with even bigger numbers, it is parsed with `strtod` as a `double`. This double precision floating point number is scaled and saved in the integer part of the final number, the rest of the digits are saved as a second correction term:
+
+```sh
+./rpnc  '123456789012345678911234567892'
+```
+```sh
+(1234567890123456 +0.7891)*pow(10,14)   # 1.23457e+29
+```
+
+This correction term `0.7891` is stored with all the precision that
+the format has, only printed shorter. The full value will be used in
+calculations. You can see more of the digits using the `-r` option:
+
+```sh
+./rpnc -r '123456789012345678911234567892'
+```
+```sh
+1234567890123456;0;1;14 # correction (f): +0.78911234567892
+```
+
+The raw format is intended for re-input into `rpnc` (so it uses the
+`;` delimited form), but there is _currrently_ no way to specify the
+correction term when inputting a number.
