@@ -22,4 +22,7 @@ manual: man/rpnc.1
 	[ -d $(MANPREFIX) ] || mkdir $(MANPREFIX) && install $^ $(MANPREFIX) && gzip -f $(MANPREFIX)/rpnc.1
 
 test: tests/rpnc.sh
+	$^
+
+prove: tests/rpnc.sh
 	@prove $^

@@ -14,6 +14,7 @@ int max(int a, int b){
 struct number diff(struct number a, struct number b);
 
 typedef double ddmap(double);
+int is_numeric(const char*);
 
 const char *F_NAME[] = {"acos", "acosh", "asin", "asinh", "atan", "atanh", "cbrt", "ceil", "cos", "cosh", "erf", "erfc", "exp", "exp2", "expm1", "fabs", "floor", "lgamma", "log", "log10", "log1p", "log2", "logb", "nearbyint", "rint", "round", "sin", "sinh", "sqrt", "tan", "tanh", "tgamma", "trunc", "j0", "j1", "y0", "y1", "significand", "exp10", "diff", NULL};
 enum func {f_acos, f_acosh, f_asin, f_asinh, f_atan, f_atanh, f_cbrt, f_ceil, f_cos, f_cosh, f_erf, f_erfc, f_exp, f_exp2, f_expm1, f_fabs, f_floor, f_lgamma, f_log, f_log10, f_log1p, f_log2, f_logb, f_nearbyint, f_rint, f_round, f_sin, f_sinh, f_sqrt, f_tan, f_tanh, f_tgamma, f_trunc, f_j0, f_j1, f_y0, f_y1, f_significand, f_exp10, f_diff, numFunctions};
@@ -28,8 +29,8 @@ ddmap *math_h[]={acos, acosh, asin, asinh, atan, atanh, cbrt, ceil, cos, cosh, e
 // - u is the uncertainty of the number, defaults to 0.5/D
 struct number {
 	long a; // whole part
-	short n; // numerator
-	short d; // denominator
+	int n; // numerator
+	int d; // denominator
 	int e; // base-10 exponent scale
 	double f; // double precision correction term
 };
@@ -93,24 +94,40 @@ struct number read_number(const char *str){
 	char *eptr=NULL;
 	const char *p = str;
 	double g,l;
-	int status = 0; /* no approximation yet */
+	int w;
+	enum ec {exact, approximate};
+	enum ec status = exact; /* no approximation yet */
 	/* mandatory */
 	if (*p != ';') {
 		z.a = strtol(p,&eptr,0);
 		if (z.a == LONG_MAX || z.a == LONG_MIN) {
 			// little fix for very large numbers
 			g = strtod(p,NULL);
-			l = round(log10(g)) + (g>0?-15:15);
-			z.e += (int) l;
-			z.a = (long) (g*exp10(-l));
-			z.f += (g - z.a*exp10(z.e))*exp10(-z.e);
-			status++;
+			l = round(log10(fabs(g)));
+			w = l - 15;
+			if (w<9){// we exceed double precision by just a bit;
+				z.a = floor(fabs(g)*exp10(-w)) * (g>0?1:-1);
+				z.n += strtol(eptr-w,NULL,10);
+				z.d = exp10(w);
+				z.e = w;
+				status=approximate;
+			} else {
+				z.e += (int) w;
+				z.a = (fabs(g)*exp10(-w)) * (g>0?1:-1);
+				z.f += (g*exp10(-z.e) - z.a);
+				status=approximate;
+			}
 		}
 		if (p == eptr) return z;
 		else p=eptr;
 	}
 	/* optional */
-	if (*p==';' && *(p+1)!=';') {
+	if (*p==';' && *(p+1)!=';' && is_numeric(p+1)) {
+		if (status == approximate){ // make room
+			z.f += frac(z.n,z.d); // move to correction term to f
+			z.d = 1;
+			z.n = 0;
+		}
 		z.n = (z.a<0?-1:1)*strtol(++p,&eptr,0);
 		if (p==eptr) return z;
 		else p=eptr;
@@ -119,25 +136,21 @@ struct number read_number(const char *str){
 	}
 	if (*p==';' && *(p+1)!=';') {
 		z.d = strtol(++p,&eptr,0);
+		if (status==approximate) z.d*=exp10(z.e); // if one was set previously.
 		if (p==eptr) return z;
 		else p=eptr;
 	} else {
 		p++;
 	}
+
 	if (z.d < 0){
 		z.d*=-1;
 		z.n*=-1;
 	}
-	// If z.a was too big a number, the fractional part doesn't matter anymore
-	if (status>0){ // approximation necessary
-		z.f += frac(z.n,z.d)*exp10(-z.e);
-		z.n=0;
-		z.d=1;
-	}
-	if (fabs(z.n)>z.d && z.n>0 && status==0) {
+	if (fabs(z.n)>z.d && z.n>0 && status==exact) {
 		z.a += z.n/z.d;
 		z.n %= z.d;
-	} else if (fabs(z.n)>z.d && z.n<0) {
+	} else if (fabs(z.n)>z.d && z.n<0 && status==exact) {
 		z.a -= z.n/z.d;
 		z.n %= z.d;
 	}
@@ -382,13 +395,13 @@ int match_function(char *str, const char* functions[]){
 	return numFunctions; // no function found
 }
 
-int is_numeric(char *str){
+int is_numeric(const char *str){
 	if (*str=='-' || *str=='+') str++;
 	if ('0' <= *str && *str <= '9') return 1;
 	return 0;
 }
 
-int is_double(char *str){
+int is_double(const char *str){
 	char *ptr=NULL;
 	if (strchr(str,'.')) return 1;
 	ptr = strchr(str,'e');
