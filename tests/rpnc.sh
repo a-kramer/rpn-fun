@@ -1,5 +1,5 @@
 #!/bin/sh
-echo "TPA version 14"
+echo "TAP version 14"
 echo "1..42"
 
 i=$((1))
