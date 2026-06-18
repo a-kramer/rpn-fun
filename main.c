@@ -33,11 +33,14 @@ struct number {
 	int d; // denominator
 	int e; // base-10 exponent scale
 	double f; // double precision correction term
+	double u; // (OPTIONAL) uncertainty
 };
 
-const struct number zero = {0, 0, 1, 0, 0.0};
-const struct number one = {1, 0, 1, 0, 0.0};
+const struct number zero = {0, 0, 1, 0, 0.0, 0.0};
+const struct number one = {1, 0, 1, 0, 0.0, 0.0};
+
 struct number reduce(struct number z);
+struct number as_rational(double x);
 
 struct stack {
 	int max;
@@ -86,6 +89,58 @@ double frac(double a, double b){
 
 double as_double(struct number z){
 	return (z.a+frac(z.n,z.d)+z.f)*exp10(z.e);
+}
+
+/* this will only read: 12.34(56)E-7, like this, with an E*/
+struct number read_concise(char *line){
+	struct number a=zero;
+	char *ptr=line;
+	char *ptr_u=line, *ptr_e=line;
+	int vscale=0;
+	double v=strtod(line,&ptr_u);
+	int u=0;
+	//int ulen=2;
+	char *decimal=strchr(line,'.');
+	int digits=0;
+	if (decimal) digits=ptr_u-decimal-1;
+	while (ptr_u && *ptr_u && !is_numeric(ptr_u)) ptr_u++;
+	if (is_numeric(ptr_u)) {
+		u=strtol(ptr_u,&ptr_e,10);
+		//ulen=ptr_e-ptr_u;
+	}
+	while (ptr_e && *ptr_e && !is_numeric(ptr_e)) ptr_e++;
+	if (is_numeric(ptr_e)) vscale=strtol(ptr_e,NULL,10);
+	a.f=v*exp10(vscale);
+	a.u=u*exp10(vscale-digits);
+	return a;
+}
+
+void print_concise(struct number x){
+	double z=as_double(x);
+	double w=x.u;
+	int vscale=floor(log10(fabs(z+1e-8)));
+	int uscale=floor(log10(fabs(w+1e-8)));
+	int d=vscale-uscale+1;
+	double v=z*pow(10,-vscale);
+	int u=w*pow(10,1-uscale);
+	if (u%10==0 && d>0){
+		d--;
+		u/=10;
+	}
+	if (d<0) {
+		v*=exp10(d);
+		u*=exp10(d);
+		vscale+=1-d;
+		d=0;
+	}
+	printf("v=%f (%i); u=%f (%i); %i; ",z,vscale,w,uscale,d);
+	if (vscale){
+		printf("%.*f(%i)",d,v,u);
+		printf("E");
+		printf("%i\n",vscale);
+	} else {
+		printf("%.*f(%i)\n",d,v,u);
+	}
 }
 
 /* The number format is a;n;d; */
@@ -191,7 +246,12 @@ void display_number(struct number z){
 	if (z.e != 0) {
 		printf(e10,z.e);
 	}
-	printf("\t# %g",as_double(z));
+	if (z.u == 0.0){
+		printf("\t# %g",as_double(z));
+	} else {
+		printf("\t#");
+		print_concise(z);
+	}
 	//printf("\t# gcd(n,d) = %i",gcdr(z.n,z.d));
 	putchar('\n');
 }
@@ -325,11 +385,14 @@ struct number scale10(struct number z, int n){
 //  y.f    x.a*y.f            x.n*y.f/x.d        x.f*y.f
 struct number prod(struct number x, struct number y){
 	struct number z = zero;
+	double Z;
 	z.e = x.e + y.e;
 	z.a = x.a*y.a;
 	z.n = x.n*y.n + x.a*y.n*x.d + y.a*x.n*y.d ;
 	z.d = x.d*y.d;
 	z.f = x.a*y.f + y.a*x.f + y.f*frac(x.n,x.d) + x.f*frac(y.n,y.d) + x.f*y.f;
+	Z = as_double(z);
+	z.u = sqrt(pow(x.u*Z/as_double(x),2)+pow(y.u*Z/as_double(y),2));
 	return reduce(z);
 }
 
@@ -344,6 +407,7 @@ struct number add(struct number x, struct number y){
 	z.a+= (x.n/x.d);
 	x.n%= x.d;
 	z.e = max(x.e,y.e);
+	z.u = sqrt(x.u*x.u + y.u*y.u);
 	return reduce(z);
 }
 
@@ -426,13 +490,16 @@ void evaluate(struct stack *s, char *prog){
 	struct number z,a,b;
 	enum func fn;
 	while (item){
-		if (strchr(item,';')){          /* rational number*/
+		if (strchr(item,'(')){                 /* uncertain number */
+			z=read_concise(item);
+			stack_push(s,z);
+		} else if (strchr(item,';')){          /* rational number*/
 			z=reduce(read_number(item));
 			stack_push(s,z);
-		} else if (*item=='M'){          /* mathematical constant */
+		} else if (*item=='M'){                /* mathematical constant */
 			z=as_rational(constant(item));
 			stack_push(s,z);
-		} else if (is_double(item)){    /* floating point number */
+		} else if (is_double(item)){           /* floating point number */
 			z=as_rational(strtod(item,NULL));
 			stack_push(s,z);
 		} else if (is_numeric(item)){
