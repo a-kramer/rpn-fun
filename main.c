@@ -79,6 +79,18 @@ struct number stack_pop(struct stack *s){
 	return s->element[s->size];
 }
 
+double derivative(ddmap f, double x0){
+	double h=1e-10;
+	if (x0<1.0){
+		h+=1e-4*x0*x0;
+	} else {
+		h+=1e-7*sqrt(x0);
+	}
+	double d = 0.5*(f(x0+h)-f(xo-h))/h;
+	return d;
+}
+
+
 /* The entire purpose of this function is that I dislike type-casts,
  * and macros. Typecasts, `(double) n/(double) d` look much worse than
  * function calls `frac(n,d)`.
