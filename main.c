@@ -81,12 +81,12 @@ struct number stack_pop(struct stack *s){
 
 double derivative(ddmap f, double x0){
 	double h=1e-10;
-	if (x0<1.0){
+	if (-1.0 < x0 && x0<1.0){
 		h+=1e-4*x0*x0;
 	} else {
-		h+=1e-7*sqrt(x0);
+		h+=1e-7*sqrt(fabs(x0));
 	}
-	double d = 0.5*(f(x0+h)-f(xo-h))/h;
+	double d = 0.5*(f(x0+h)-f(x0-h))/h;
 	return d;
 }
 
@@ -145,14 +145,14 @@ void print_concise(struct number x){
 		vscale+=1-d;
 		d=0;
 	}
-	printf("v=%f (%i); u=%f (%i); %i; ",z,vscale,w,uscale,d);
 	if (vscale){
 		printf("%.*f(%i)",d,v,u);
 		printf("E");
-		printf("%i\n",vscale);
+		printf("%+i\n",vscale);
 	} else {
-		printf("%.*f(%i)\n",d,v,u);
+		printf("%.*f(%i)",d,v,u);
 	}
+	printf("\t# %g ± %g",z,w);
 }
 
 /* The number format is a;n;d; */
@@ -251,18 +251,23 @@ void display_double(struct number z){
 }
 
 void display_number(struct number z){
-	printf("(%li",z.a);
-	if (abs(z.n) != 0) printf(" %+i/%i",z.n,z.d);
-	if (fabs(z.f) != 0.0) printf(" %+.4g",z.f);
-	putchar(')');
-	if (z.e != 0) {
-		printf(e10,z.e);
-	}
-	if (z.u == 0.0){
-		printf("\t# %g",as_double(z));
-	} else {
-		printf("\t#");
+	if (z.u > 0.0) {
 		print_concise(z);
+	} else if (z.n == 0) {
+		printf("%li",z.a);
+		if (fabs(z.f) != 0.0) {
+			printf(" %+.4g",z.f);
+			printf("\t# %g",as_double(z));
+		}
+	} else {
+		printf("(%li",z.a);
+		if (abs(z.n) != 0) printf(" %+i/%i",z.n,z.d);
+		if (fabs(z.f) != 0.0) printf(" %+.4g",z.f);
+		putchar(')');
+		if (z.e != 0) {
+			printf(e10,z.e);
+		}
+		printf("\t# %g",as_double(z));
 	}
 	//printf("\t# gcd(n,d) = %i",gcdr(z.n,z.d));
 	putchar('\n');
@@ -433,6 +438,7 @@ struct number inverse(struct number z){
 	x.n=z.d;
 	x.d=z.n+z.a*z.d;
 	x.e*=-1;
+	x.u=pow(as_double(x),2)*x.u;
 	return reduce(x);
 }
 
@@ -527,6 +533,7 @@ void evaluate(struct stack *s, char *prog){
 			default:
 				a=stack_pop(s);
 				z=as_rational(math_h[fn](as_double(a)));
+				z.u=fabs(derivative(math_h[fn],as_double(a)))*fabs(a.u);
 				stack_push(s,z);
 			}
 		} else if (strlen(item)==2){/* two-letter operators*/
