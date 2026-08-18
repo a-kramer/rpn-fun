@@ -128,8 +128,8 @@ A leading `-` will negate the entire number:
 ./rpnc '-1;1;8 1;1;8'
 ```
 ```sh
-(-1-1/8)	# -1.125
-(1+3/8)	# 1.375
+(-1 -1/8)       # -1.125
+(1 +1/8)        # 1.125
 ```
 
 The fractional part can have signs as well (please avoid using it).
