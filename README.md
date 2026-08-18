@@ -403,6 +403,8 @@ double      drem(double, double);
 double      scalb(double, double);
 ```
 
+In addition, the function `diff(double,double)` exists, it calculates the absolute difference between two numbers: `2 1 diff` yields `1`.
+
 # Constants
 
 Mathematical constants from `math.h` such as `M_PI` can be used as well:
@@ -482,3 +484,69 @@ calculations. You can see more of the digits using the `-r` option:
 The raw format is intended for re-input into `rpnc` (so it uses the
 `;` delimited form), but there is _currrently_ no way to specify the
 correction term when inputting a number.
+
+# Uncertainty
+
+When numbers are read, it is possible to specify an uncertainty in
+concise notation, also known as parenthesised error notation: `9.0(1)`
+where the number in parentheses soecifies the uncertainty of the last
+digit given, so the `1` affects the `.0` part of the given number. If
+the uncertainty has two digits, it affects the last two given digits
+of the number (the uncertainty doesn't have a `.` in it, ever).
+
+This means that the number is _uncertain_ with a Gaussian (by default)
+probability distribution of $\mathcal{N}(\mu,\sigma^2)$ with $\mu = 9$
+and $\sigma=0.1$ in this case. This implies that if we repeat the
+observation of this number many times, the results would be
+distributed this way.
+
+This uncertainty propagates to results:
+
+```sh
+./rpnc '9.0(1) 3.00(3) +'
+```
+```
+1.20(1)E+1	# 12 ± 0.104403
+```
+
+And similarly for function calls:
+
+```sh
+./rpnc '4.00(16) sqrt'
+```
+```
+2.000(39)       # 2 ± 0.04
+```
+
+Here are a few examples of concise numbers and the distribution they follow:
+
+|    number | distribution $\mathcal{N}(\mu,\sigma^2)$ |
+|----------:|:-----------------------------------------|
+|    9.0(1) | $\mathcal{N}(9,0.1^2)$                   |
+|  3.45(14) | $\mathcal{N}(3.45,0.14^2)$               |
+| -1.0(1)E3 | $\mathcal{N}(-1000,100^2)$               |
+
+Once again, the uncertainty can be suppressed from the output:
+
+```sh
+./rpnc -d '10(1) tanh'
+```
+```
+0.99999999588
+```
+
+## Method of Error Propagation
+
+The rule of error propagation through any function $f(a,b,\dots)$ is:
+
+$$
+\sigma_f^2 = \left|\frac{\partial f}{\partial a}\right|^2 \sigma_a^2 + \left|\frac{\partial f}{\partial b}\right|^2 \sigma_b^2 + \dots
+$$
+
+This rule assumes that the errors are uncorrelated. Since there is no
+way to specify correlated numbers in this software, the numbers are
+always uncorrelated. In other words: don't use this program for
+complex cases of error propagation.
+
+
+

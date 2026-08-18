@@ -106,7 +106,7 @@ double as_double(struct number z){
 /* this will only read: 12.34(56)E-7, like this, with an E*/
 struct number read_concise(char *line){
 	struct number a=zero;
-	char *ptr=line;
+	//	char *ptr=line;
 	char *ptr_u=line, *ptr_e=line;
 	int vscale=0;
 	double v=strtod(line,&ptr_u);
@@ -148,7 +148,7 @@ void print_concise(struct number x){
 	if (vscale){
 		printf("%.*f(%i)",d,v,u);
 		printf("E");
-		printf("%+i\n",vscale);
+		printf("%+i",vscale);
 	} else {
 		printf("%.*f(%i)",d,v,u);
 	}
@@ -253,7 +253,7 @@ void display_double(struct number z){
 void display_number(struct number z){
 	if (z.u > 0.0) {
 		print_concise(z);
-	} else if (z.n == 0) {
+	} else if (z.n == 0 && z.e == 0) {
 		printf("%li",z.a);
 		if (fabs(z.f) != 0.0) {
 			printf(" %+.4g",z.f);
@@ -493,7 +493,40 @@ int is_double(const char *str){
 	return 0;
 }
 
+double PHI(double z){
+	return 0.5*(1+erf(M_SQRT1_2*z));
+}
 
+/* P(a<b)*/
+double CDF_LESS(struct number a, struct number b){
+	double mu_a=as_double(a);
+	double mu_b=as_double(b);
+	double var_a = a.u*a.u; // sigma_a^2
+	double var_b = b.u*b.u; // sigma_b^2
+	return PHI((mu_b-mu_a)/sqrt(var_a+var_b));
+}
+
+//double JSD(struct number a, struct number b){
+//}
+
+double Bhattacharyya_distance(struct number a, struct number b){
+	double mu_a=as_double(a);
+	double mu_b=as_double(b);
+	double var_a = a.u*a.u; // sigma_a^2
+	double var_b = b.u*b.u; // sigma_b^2
+	return 0.25*pow(mu_a-mu_b,2)/(var_a+var_b) + 0.5*log((var_a+var_b)/(2*a.u*b.u));
+}
+
+double OVL(struct number a, struct number b){
+	double mu_a=as_double(a);
+	double mu_b=as_double(b);
+	double sigma=0.5*(a.u+b.u);
+	return 2*(1-PHI(fabs(mu_a-mu_b)/(2*sigma)));
+}
+
+void stack_push_d(struct stack *s, double d){
+	stack_push(s,as_rational(d));
+}
 
 /* Table of operators:
  * + adds the top two numbers on te stack
@@ -545,15 +578,26 @@ void evaluate(struct stack *s, char *prog){
 			} else if (strcmp("<=",item)==0){
 				b=stack_pop(s);
 				a=stack_pop(s);
-				stack_push(s,as_rational(as_double(a)<=as_double(b)));
+				if (a.u || b.u) stack_push(s,as_rational(CDF_LESS(a,b)));
+				else stack_push(s,as_rational(as_double(a)<=as_double(b)));
 			} else if (strcmp(">=",item)==0){
 				b=stack_pop(s);
 				a=stack_pop(s);
-				stack_push(s,as_rational(as_double(a)>=as_double(b)));
-			} else if (strcmp("==",item)==0){
+				if (a.u || b.u) stack_push(s,as_rational(CDF_LESS(b,a)));
+				else stack_push(s,as_rational(as_double(a)>=as_double(b)));
+			} else if (strcmp("==",item)==0){ // this is the strict 'equal'
 				b=stack_pop(s);
 				a=stack_pop(s);
-				stack_push(s,as_rational(as_double(a)==as_double(b)));
+				stack_push(s,as_rational(0==memcmp(&a,&b,sizeof(struct number))));
+			} else if (strcmp("!=",item)==0) {
+				b=stack_pop(s);
+				a=stack_pop(s);
+				stack_push(s,as_rational(0!=memcmp(&a,&b,sizeof(struct number))));
+			} else if (strcmp("<>",item)==0){ // not equal in the mathematical sense
+				b=stack_pop(s);
+				a=stack_pop(s);
+				if (a.u && b.u) stack_push(s,as_rational(sqrt(Bhattacharyya_distance(a,b))));
+				else stack_push(s,as_rational(as_double(a) != as_double(b)));
 			}
 		} else {                    /* an operator: +-^*/
 			switch(*item){
@@ -581,17 +625,20 @@ void evaluate(struct stack *s, char *prog){
 			case '<':
 				b=stack_pop(s);
 				a=stack_pop(s);
-				stack_push(s,as_rational(as_double(a)<as_double(b)));
+				if (a.u || b.u) stack_push(s,as_rational(CDF_LESS(a,b)));
+				else stack_push(s,as_rational(as_double(a)<as_double(b)));
 				break;
 			case '>':
 				b=stack_pop(s);
 				a=stack_pop(s);
-				stack_push(s,as_rational(as_double(a)>as_double(b)));
+				if (a.u || b.u) stack_push(s,as_rational(CDF_LESS(b,a)));
+				else stack_push(s,as_rational(as_double(a)>as_double(b)));
 				break;
-			case '=':
+			case '=': // in the mathematical sense
 				b=stack_pop(s);
 				a=stack_pop(s);
-				stack_push(s,as_rational(as_double(a)==as_double(b)));
+				if (a.u || b.u) stack_push(s,as_rational(OVL(a,b))); // overlap
+				else stack_push(s,as_rational(fabs(as_double(a)-as_double(b))<1e-15));
 				break;
 			case '/':
 				b=stack_pop(s);
