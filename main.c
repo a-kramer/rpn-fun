@@ -172,7 +172,7 @@ struct number read_number(const char *str){
 			g = strtod(p,NULL);
 			l = round(log10(fabs(g)));
 			w = l - 15;
-			if (w<9){// we exceed double precision by just a bit;
+			if (w<9){ // we exceed double precision by just a bit;
 				z.a = floor(fabs(g)*exp10(-w)) * (g>0?1:-1);
 				z.n += strtol(eptr-w,NULL,10);
 				z.d = exp10(w);
@@ -203,10 +203,18 @@ struct number read_number(const char *str){
 	}
 	if (*p==';' && *(p+1)!=';') {
 		z.d = strtol(++p,&eptr,0);
-		if (status==approximate) z.d*=exp10(z.e); // if one was set previously.
-		if (p==eptr) return z;
+		if (status==approximate) z.d*=exp10(z.e); // if one was set previously, due to precision constraints
+		if (p==eptr){ //missing denominator, reinterpret what we read before
+			z.d=z.n;
+			z.n=z.a;
+			z.a=0;
+			return z;
+		}
 		else p=eptr;
-	} else {
+	} else { // reinterpret what we read before
+		z.d=z.n;
+		z.n=z.a;
+		z.a=0;
 		p++;
 	}
 	if (z.d < 0){
@@ -409,7 +417,7 @@ struct number prod(struct number x, struct number y){
 	z.d = x.d*y.d;
 	z.f = x.a*y.f + y.a*x.f + y.f*frac(x.n,x.d) + x.f*frac(y.n,y.d) + x.f*y.f;
 	Z = as_double(z);
-	z.u = sqrt(pow(x.u*Z/as_double(x),2)+pow(y.u*Z/as_double(y),2));
+	z.u = hypot(x.u*Z/as_double(x),y.u*Z/as_double(y)); // sqrt(sumsq(a,b))
 	return reduce(z);
 }
 
@@ -424,7 +432,7 @@ struct number add(struct number x, struct number y){
 	z.a+= (x.n/x.d);
 	x.n%= x.d;
 	z.e = max(x.e,y.e);
-	z.u = sqrt(x.u*x.u + y.u*y.u);
+	z.u = hypot(x.u,y.u); //sqrt(x.u*x.u + y.u*y.u);
 	return reduce(z);
 }
 
@@ -501,9 +509,7 @@ double PHI(double z){
 double CDF_LESS(struct number a, struct number b){
 	double mu_a=as_double(a);
 	double mu_b=as_double(b);
-	double var_a = a.u*a.u; // sigma_a^2
-	double var_b = b.u*b.u; // sigma_b^2
-	return PHI((mu_b-mu_a)/sqrt(var_a+var_b));
+	return PHI((mu_b-mu_a)/hypot(a.u,b.u)); // sqrt(var_a+var_b));
 }
 
 //double JSD(struct number a, struct number b){
