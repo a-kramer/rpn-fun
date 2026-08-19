@@ -110,7 +110,7 @@ approximately), using this special notation: `1;2;3` (semi-colon separated list)
 interpreted as:
 
 $$
-1\frac{2}{3} := 1 + \frac{2}{3}
+1\tfrac{2}{3} := 1 + \frac{2}{3}
 $$
 
 All of these components are retained in the internal representation:
