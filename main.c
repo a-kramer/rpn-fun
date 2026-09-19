@@ -162,6 +162,7 @@ struct number read_number(const char *str){
 	const char *p = str;
 	double g,l;
 	int w;
+	int semicolons = 0;
 	enum ec {exact, approximate};
 	enum ec status = exact; /* no approximation yet */
 	/* mandatory */
@@ -190,6 +191,7 @@ struct number read_number(const char *str){
 	}
 	/* optional */
 	if (*p==';' && *(p+1)!=';' && is_numeric(p+1)) {
+		semicolons++;
 		if (status == approximate){ // make room
 			z.f += frac(z.n,z.d); // move to correction term to f
 			z.d = 1;
@@ -211,10 +213,12 @@ struct number read_number(const char *str){
 			return z;
 		}
 		else p=eptr;
-	} else { // reinterpret what we read before
+	} else if (semicolons>0) { // reinterpret what we read before
 		z.d=z.n;
 		z.n=z.a;
 		z.a=0;
+		p++;
+	} else {
 		p++;
 	}
 	if (z.d < 0){

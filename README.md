@@ -498,7 +498,7 @@ This means that the number is _uncertain_ with a Gaussian (by default)
 probability distribution of $\mathcal{N}(\mu,\sigma^2)$ with $\mu = 9$
 and $\sigma=0.1$ in this case. This implies that if we repeat the
 observation of this number many times, the results would be
-distributed this way.
+distributed this way. There is no systematic error in this interpretation.
 
 This uncertainty propagates to results:
 
@@ -548,5 +548,58 @@ way to specify correlated numbers in this software, the numbers are
 always uncorrelated. In other words: don't use this program for
 complex cases of error propagation.
 
+## Logical Operators for Uncertain Numbers
+
+Because each number like `5.0(1)` really represents a Gaussian
+distribution with a $\mu$ and a $\sigma$, we can also implement
+something meaningful for all logical operators.
+
+We implement two operators that resist this interpretation: `==` and
+`!=` they are interpreted as _programming language_ kind of equal
+(exactly equal in memory, via `memcmp` of the top two objects on the
+stack). These never change.
+
+### Inequality Operators
+
+For `<` and `>` it makes sense to return the probability of the two
+numbers still being orderd like this, when the observation is repeated.
+
+```sh
+./rpnc -d '5(1) 6(1) <'
+```
+```
+0.7602499389
+```
+
+While,
+
+```sh
+./rpnc -d '5 6 <'
+```
+```
+1
+```
+
+### Mathematical Compatibility
+
+We also define a more mathematical equivalence between two
+distributions. This is a measure of how much the two distributions
+overlap or what the distance is between distributions.
+
+One approach could be to check whether two numbers have touching
+$\sigma$-confidence intervals (`5.0(5)` and `6.0(5)` are compatible,
+because they touch, barely, at `5.5`).
+
+Or we could use the Kullback Leibler Divergence.
+
+But, we decided to use the _Bhattacharyya distance_ distance as a
+measure of how far apart, or unequal `<>`, two numbers are:
+
+```
+./rpnc -d '5.0(5) 6.0(5) <>'
+```
+```
+0.707106781187
+```
 
 
