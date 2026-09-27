@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O2 -march=native
+CFLAGS = -O2 -march=native -Wfatal-errors
 PREFIX = /usr/local/bin
 MANPREFIX = /usr/local/man/man1
 

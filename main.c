@@ -5,7 +5,13 @@
 #include <math.h>
 #include <time.h>
 #include <limits.h>
+#include <stdint.h>
+#include <ctype.h>
+#include <unistd.h>
+#include <assert.h>
 #include "config.h"
+
+#define CSTR(c) ((char[2]){(c)})
 
 int max(int a, int b){
 	if (a>b) return a;
@@ -48,6 +54,54 @@ struct stack {
 	struct number *element;
 };
 
+struct split {
+	char **token;
+	size_t size;
+	size_t max;
+};
+
+struct split split_alloc(size_t max){
+	struct split s;
+	s.max=max;
+	s.token=malloc(sizeof(char*)*s.max);
+	s.size=0;
+	return s;
+}
+
+void strsplit(char *str, struct split *s, char *delim){
+	char *ptr=str;
+	char *t=strtok_r(str,delim,&ptr);
+	while (t){
+		if (s->size==s->max) {
+			s->max*=2;
+			s->token=realloc(s->token,sizeof(char*)*(s->max));
+		}
+		s->token[s->size]=t;
+		s->size++;
+		t=strtok_r(NULL,delim,&ptr);
+	}
+}
+
+void split_free(struct split **s){
+	if (s && *s){
+		if ((*s)->token) free((*s)->token);
+		*s=NULL;
+	}
+}
+
+/* The standard 64-bit FNV-1a hash function */
+static uint64_t FNV1a(const char* str) {
+	const uint64_t FNV_offset_basis =  0xcbf29ce484222325ULL;
+	const uint64_t FNV_prime = 0x100000001b3ULL;
+	uint64_t hash = FNV_offset_basis;
+	for (const char* ptr = str; *ptr != '\0'; ++ptr) {
+		hash ^= (uint64_t)(unsigned char)(*ptr);
+		hash *= FNV_prime;
+	}
+	return hash;
+}
+
+
 /* Allocates memory for a pointer inside of a struct.      */
 /* The struct is returned by value, including the pointer. */
 /* So, it is OK to not return a pointer here.              */
@@ -77,6 +131,57 @@ struct number stack_pop(struct stack *s){
 		s->size--;
 	}
 	return s->element[s->size];
+}
+
+struct hash {
+	uint64_t *val;
+	size_t size;
+	size_t max;
+};
+
+struct hash default_header(){
+	char a;
+	struct hash H;
+	H.max=(1+'Z'-'A');
+	H.val=malloc(sizeof(uint64_t)*H.max);
+	for (a='A';a<='Z';a++){
+		H.val[a-'A'] = FNV1a(CSTR(a));
+	}
+	H.size=H.max;
+	return H;
+}
+
+
+int is_header(const char *str){
+	while (isblank(*str)) str++;
+	if (isalpha(*str)) return 1;
+	else return 0;
+}
+
+static int count(char *str, char c){
+	int i=0;
+	if (!str) return 0;
+	while (*str){
+		if ((*str)==c) i++;
+		str++;
+	}
+	return i;
+}
+
+struct hash remember_header(char *str){
+	int i;
+	size_t n=count(str,'\t')+1;
+	struct hash H;
+	H.val=malloc(sizeof(uint64_t)*n);
+	H.max=n;
+	char *p=str;
+	char *item=strtok_r(str,"\t",&p);
+	for (i=0;i<n;i++){
+		H.val[i] = FNV1a(item);
+		item=strtok_r(NULL,"\t",&p);
+	}
+	H.size=H.max;
+	return H;
 }
 
 double derivative(ddmap f, double x0){
@@ -155,7 +260,6 @@ void print_concise(struct number x){
 	printf("\t# %g ± %g",z,w);
 }
 
-/* The number format is a;n;d; */
 struct number read_number(const char *str){
 	struct number z=zero;
 	char *eptr=NULL;
@@ -164,8 +268,8 @@ struct number read_number(const char *str){
 	int w;
 	int semicolons = 0;
 	enum ec {exact, approximate};
-	enum ec status = exact; /* no approximation yet */
-	/* mandatory */
+	enum ec status = exact; // no approximation yet
+	// mandatory
 	if (*p != ';') {
 		z.a = strtol(p,&eptr,0);
 		if (z.a == LONG_MAX || z.a == LONG_MIN) {
@@ -186,10 +290,10 @@ struct number read_number(const char *str){
 				status=approximate;
 			}
 		}
-		if (p == eptr) return z;
+		if (p == eptr || *eptr=='\0') return z;
 		else p=eptr;
 	}
-	/* optional */
+	// optional
 	if (*p==';' && *(p+1)!=';' && is_numeric(p+1)) {
 		semicolons++;
 		if (status == approximate){ // make room
@@ -198,7 +302,7 @@ struct number read_number(const char *str){
 			z.n = 0;
 		}
 		z.n = (z.a<0?-1:1)*strtol(++p,&eptr,0);
-		if (p==eptr) return z;
+		if (p==eptr || *eptr=='\0') return z;
 		else p=eptr;
 	} else {
 		p++;
@@ -251,18 +355,18 @@ int gcdw(int a, int b){
 	return a|b;
 }
 
-void display_raw(struct number z){
+void display_raw(struct number z, char final){
 	printf("%li;%i;%i;%i\t",z.a,z.n,z.d,z.e);
 	if (z.f!=0.0) printf("# correction (f): %+.15g",z.f);
-	putchar('\n');
+	putchar(final);
 }
 
-void display_double(struct number z){
+void display_double(struct number z, char final){
 	int l=round(log10(fabs(z.f)))-6;
-	printf("%.*g\n",l<0?-l:2,as_double(z));
+	printf("%.*g%c",l<0?-l:2,as_double(z),final);
 }
 
-void display_number(struct number z){
+void display_number(struct number z, char final){
 	if (z.u > 0.0) {
 		print_concise(z);
 	} else if (z.n == 0 && z.e == 0) {
@@ -282,7 +386,7 @@ void display_number(struct number z){
 		printf("\t# %g",as_double(z));
 	}
 	//printf("\t# gcd(n,d) = %i",gcdr(z.n,z.d));
-	putchar('\n');
+	putchar(final);
 }
 
 struct number negate(struct number z){
@@ -545,12 +649,30 @@ void stack_push_d(struct stack *s, double d){
  * * multiplies the top two numbers
  */
 
-void evaluate(struct stack *s, char *prog){
-	char *saveptr;
-	char *item = strtok_r(prog," ",&saveptr);
+/* Evaluates an RPN program (with a stack), optionally, with table                     */
+/* cells as context.                                                                   */
+/* The cells can be referenced by name through the header of the                       */
+/*                                                                                     */
+/* table:             RPN program                   &optional      table               */
+/*            ╭─────────────────────────────────╮  ╭──────────────────────────────────────╮  */
+void evaluate(struct stack *s, struct split *prog, struct split *cells, struct hash *header){
+	char *item;
 	struct number z,a,b;
 	enum func fn;
-	while (item){
+	uint64_t h;
+	int i,j;
+	//assert(cells->size == header->size);
+	for (j=0;j<prog->size;j++){
+		item=prog->token[j];
+		if (cells && header && header->val){
+			h=FNV1a(item);
+			for (i=0; i<header->size; i++){
+				if (header->val[i] == h){
+					//printf("«%s» is actually «%s» here.\n",item,cells->token[i]);
+					item=cells->token[i];
+				}
+			}
+		}
 		if (strchr(item,'(')){                 /* uncertain number */
 			z=read_concise(item);
 			stack_push(s,z);
@@ -606,8 +728,11 @@ void evaluate(struct stack *s, char *prog){
 			} else if (strcmp("<>",item)==0){ // not equal in the mathematical sense
 				b=stack_pop(s);
 				a=stack_pop(s);
-				if (a.u && b.u) stack_push(s,as_rational(sqrt(Bhattacharyya_distance(a,b))));
-				else stack_push(s,as_rational(as_double(a) != as_double(b)));
+				if (a.u && b.u) {
+					stack_push(s,as_rational(sqrt(Bhattacharyya_distance(a,b))));
+				} else {
+					stack_push(s,as_rational(as_double(a) != as_double(b)));
+				}
 			}
 		} else {                    /* an operator: +-^*/
 			switch(*item){
@@ -666,43 +791,78 @@ void evaluate(struct stack *s, char *prog){
 				break;
 			}
 		}
-		item=strtok_r(NULL," ",&saveptr);
 	}
+}
+
+enum output {human, raw, flt};
+
+
+void print_stack(struct stack *s, enum output o, char sep, char final){
+	int i;
+	int n=s->size;
+	for (i=0;i<n;i++){
+		switch(o){
+		case human:
+			display_number(s->element[i],i<n-1?sep:final);
+			break;
+		case raw:
+			display_raw(s->element[i],i<n-1?sep:final);
+			break;
+		case flt:
+			display_double(s->element[i],i<n-1?sep:final);
+			break;
+		}
+	}
+}
+
+void reset_stack(struct stack *s){
+	s->size=0;
 }
 
 int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
 	if (argc==1) return EXIT_FAILURE;
-	char *prog="";
-	char *octothorpe=NULL;
+	char *prog_buffer=NULL;
+	struct split prog=split_alloc(64);
+	struct split cells=split_alloc(64);
 	int j;
+	struct hash header=default_header();
+	ssize_t m;
+	size_t n=128;
+	char *line=malloc(n);
+	int piped=!isatty(STDIN_FILENO);
 	struct stack s = stack_alloc(32);
-	enum output {human, raw, flt} o=human;
+	enum output o=human;
+	int NR=0;
 	for (j=1;j<argc;j++){
 		if (strcmp("-r",argv[j])==0){
 			o=raw;
 		} else if (strcmp("-d",argv[j])==0){
 			o=flt;
-		} else if (strcmp("-e",argv[j])==0){
-			prog=argv[j+1];
 		} else {
-			prog=strdup(argv[j]);
-			if ((octothorpe=strchr(prog,'#'))!=NULL) *octothorpe='\0';
-			evaluate(&s,prog);
+			prog_buffer=strdup(argv[j]);
+			strsplit(prog_buffer,&prog," ");
 		}
 	}
 	int i;
-	for (i=0;i<s.size;i++){
-		switch(o){
-		case human:
-			display_number(s.element[i]);
-			break;
-		case raw:
-			display_raw(s.element[i]);
-			break;
-		case flt:
-			display_double(s.element[i]);
-			break;
+	if (!prog_buffer) abort(); // no program was supplied
+	while (piped && (m=getline(&line,&n,stdin))>0 && !feof(stdin)) {
+		line[m-1]='\0';
+		if (NR==0 && line && is_header(line)){
+			free(header.val); // free default header (A-Z)
+			header = remember_header(line);
+		} else {
+			fputs(line,stdout); putchar('\t');
+			cells.size=0;
+			strsplit(line,&cells,"\t");
+			evaluate(&s,&prog,&cells,&header);
+			print_stack(&s,o,'\t','\n');
+			reset_stack(&s);
 		}
+		NR++;
+	}
+	if (!piped){
+		evaluate(&s,&prog,NULL,NULL);
+		print_stack(&s,o,'\n','\n');
 	}
 	return EXIT_SUCCESS;
 }
