@@ -13,6 +13,8 @@
 
 #define CSTR(c) ((char[2]){(c)})
 
+enum style {loose, compact, commented};
+
 int max(int a, int b){
 	if (a>b) return a;
 	else return b;
@@ -79,6 +81,14 @@ void strsplit(char *str, struct split *s, char *delim){
 		s->token[s->size]=t;
 		s->size++;
 		t=strtok_r(NULL,delim,&ptr);
+	}
+}
+
+void print_split(struct split *s, char sep, char final){
+	int i;
+	int n=s->size;
+	for (i=0;i<n;i++){
+		printf("%s%c",s->token[i],i<(n-1)?sep:final);
 	}
 }
 
@@ -168,19 +178,16 @@ static int count(char *str, char c){
 	return i;
 }
 
-struct hash remember_header(char *str){
+struct hash remember_header(struct split *s){
 	int i;
-	size_t n=count(str,'\t')+1;
+	size_t n=s->size;
 	struct hash H;
-	H.val=malloc(sizeof(uint64_t)*n);
 	H.max=n;
-	char *p=str;
-	char *item=strtok_r(str,"\t",&p);
+	H.val=malloc(sizeof(uint64_t)*H.max);
 	for (i=0;i<n;i++){
-		H.val[i] = FNV1a(item);
-		item=strtok_r(NULL,"\t",&p);
+		H.val[i] = FNV1a(s->token[i]);
+		H.size++;
 	}
-	H.size=H.max;
 	return H;
 }
 
@@ -232,7 +239,7 @@ struct number read_concise(char *line){
 	return a;
 }
 
-void print_concise(struct number x){
+void print_concise(struct number x, enum style s){
 	double z=as_double(x);
 	double w=x.u;
 	int vscale=floor(log10(fabs(z+1e-8)));
@@ -257,89 +264,79 @@ void print_concise(struct number x){
 	} else {
 		printf("%.*f(%i)",d,v,u);
 	}
-	printf("\t# %g ± %g",z,w);
+	if (s==commented) printf("\t# %g ± %g",z,w);
+}
+// if the number read so far is too big,
+void fix_overflow(struct number *z, char *a){
+	double g;
+	long w,l;
+
+	if (z->a == LONG_MAX || z->a == LONG_MIN) { // little fix for very large numbers
+		g = strtod(a,NULL);
+		l = round(log10(fabs(g)));
+		w = l - 15;
+		if (z->n == 0 && w<9) {
+			z->a = floor(fabs(g)*exp10(-w))*(g>0?1:-1);
+			z->n = strtol(a+16,NULL,10);
+			z->d = exp10(w);
+			z->e = w;
+		} else { // we exceed double precision by just a bit;
+			z->f = strtod(a+16+(*a=='-'),NULL)*exp10(-w)*(g>0?1:-1);
+			z->a = floor(fabs(g)*exp10(-w))*(g>0?1:-1);
+			z->e += (int) w;
+		}
+	}
 }
 
-struct number read_number(const char *str){
-	struct number z=zero;
-	char *eptr=NULL;
-	const char *p = str;
-	double g,l;
-	int w;
-	int semicolons = 0;
-	enum ec {exact, approximate};
-	enum ec status = exact; // no approximation yet
-	// mandatory
-	if (*p != ';') {
-		z.a = strtol(p,&eptr,0);
-		if (z.a == LONG_MAX || z.a == LONG_MIN) {
-			// little fix for very large numbers
-			g = strtod(p,NULL);
-			l = round(log10(fabs(g)));
-			w = l - 15;
-			if (w<9){ // we exceed double precision by just a bit;
-				z.a = floor(fabs(g)*exp10(-w)) * (g>0?1:-1);
-				z.n += strtol(eptr-w,NULL,10);
-				z.d = exp10(w);
-				z.e = w;
-				status=approximate;
-			} else {
-				z.f = strtod(p+16+(p[0]=='-'),NULL)*exp10(-w)*(g>0?1:-1);
-				z.a = floor(fabs(g)*exp10(-w))*(g>0?1:-1);
-				z.e += (int) w;
-				status=approximate;
-			}
-		}
-		if (p == eptr || *eptr=='\0') return z;
-		else p=eptr;
+/* The number format is a;n;d; */
+struct number read_number(char *str) {
+	struct number z = zero;
+	if (!str || !*str) return z;
+	while (*str==';') str++; // skip leading semicolons
+	char *p=str+strlen(str)-1;
+	while (*p==';') {
+		*p='\0';
+		p--;
 	}
-	// optional
-	if (*p==';' && *(p+1)!=';' && is_numeric(p+1)) {
-		semicolons++;
-		if (status == approximate){ // make room
-			z.f += frac(z.n,z.d); // move to correction term to f
-			z.d = 1;
-			z.n = 0;
-		}
-		z.n = (z.a<0?-1:1)*strtol(++p,&eptr,0);
-		if (p==eptr || *eptr=='\0') return z;
-		else p=eptr;
-	} else {
-		p++;
+
+	int semicolons = count(str,';');
+	if (semicolons>3) {
+		fprintf(stderr,"too many delimiters (;) in «%s»\n",str);
+		return zero;
 	}
-	if (*p==';' && *(p+1)!=';') {
-		z.d = strtol(++p,&eptr,0);
-		if (status==approximate) z.d*=exp10(z.e); // if one was set previously, due to precision constraints
-		if (p==eptr){ //missing denominator, reinterpret what we read before
-			z.d=z.n;
-			z.n=z.a;
-			z.a=0;
-			return z;
-		}
-		else p=eptr;
-	} else if (semicolons>0) { // reinterpret what we read before
-		z.d=z.n;
-		z.n=z.a;
-		z.a=0;
-		p++;
-	} else {
-		p++;
+	char *saveptr;
+	char *p0 = strtok_r(str, ";", &saveptr);
+	char *p1 = strtok_r(NULL, ";", &saveptr);
+	char *p2 = strtok_r(NULL, ";", &saveptr);
+	char *p3 = strtok_r(NULL, ";", &saveptr);
+	switch (semicolons) {
+	case 0: /* Single whole number "123" */
+		if (p0) z.a = strtol(p0, NULL, 0);
+		fix_overflow(&z,p0);
+		break;
+	case 1: /* Fraction without whole part "1;2" -> 1/2 */
+		if (p0) z.n = strtol(p0, NULL, 0);
+		if (p1) z.d = strtol(p1, NULL, 0);
+		break;
+	case 2: /* Whole + Fraction "1;2;3" -> 1 + 2/3 */
+		if (p0) z.a = strtol(p0, NULL, 0);
+		if (p1) z.n = strtol(p1, NULL, 0);
+		if (p2) z.d = strtol(p2, NULL, 0);
+		fix_overflow(&z,p0);
+		break;
+	case 3: /* Whole + Fraction + Exponent "1;2;3;10" */
+		if (p0) z.a = strtol(p0, NULL, 0);
+		if (p1) z.n = strtol(p1, NULL, 0);
+		if (p2) z.d = strtol(p2, NULL, 0);
+		if (p3) z.e = strtol(p3, NULL, 0);
+		fix_overflow(&z,p0);
+		break;
 	}
-	if (z.d < 0){
-		z.d*=-1;
-		z.n*=-1;
+	if (z.d < 0) {
+		z.d = -z.d;
+		z.n = -z.n;
 	}
-	if (fabs(z.n)>z.d && z.n>0 && status==exact) {
-		z.a += z.n/z.d;
-		z.n %= z.d;
-	} else if (fabs(z.n)>z.d && z.n<0 && status==exact) {
-		z.a -= z.n/z.d;
-		z.n %= z.d;
-	}
-	if (*p==';') {
-		z.e += strtol(++p,&eptr,0);
-	}
-	return z;
+	return reduce(z);
 }
 
 /* gcdr and gcdw: these two functions are equally fast with -O2 */
@@ -355,37 +352,42 @@ int gcdw(int a, int b){
 	return a|b;
 }
 
-void display_raw(struct number z, char final){
-	printf("%li;%i;%i;%i\t",z.a,z.n,z.d,z.e);
-	if (z.f!=0.0) printf("# correction (f): %+.15g",z.f);
+
+
+void display_raw(struct number z, char final, enum style s){
+	printf("%li;%i;%i;%i",z.a,z.n,z.d,z.e);
+	if (z.f!=0.0 && s==commented) printf("# correction (f): %+.15g",z.f);
 	putchar(final);
 }
 
-void display_double(struct number z, char final){
+void display_double(struct number z, char final, enum style s){
 	int l=round(log10(fabs(z.f)))-6;
 	printf("%.*g%c",l<0?-l:2,as_double(z),final);
 }
 
-void display_number(struct number z, char final){
+void display_number(struct number z, char final, enum style s){
 	if (z.u > 0.0) {
-		print_concise(z);
-	} else if (z.n == 0 && z.e == 0) {
+		print_concise(z,s);
+		putchar(final);
+		return;
+	}
+	if (z.n == 0 && z.e == 0) {
 		printf("%li",z.a);
+		if (s==loose || s==commented) putchar(' ');
 		if (fabs(z.f) != 0.0) {
-			printf(" %+.4g",z.f);
-			printf("\t# %g",as_double(z));
+			printf("%+.4g",z.f);
 		}
 	} else {
 		printf("(%li",z.a);
-		if (abs(z.n) != 0) printf(" %+i/%i",z.n,z.d);
-		if (fabs(z.f) != 0.0) printf(" %+.4g",z.f);
+		if (s==loose || s==commented) putchar(' ');
+		if (abs(z.n) != 0) printf("%+i/%i",z.n,z.d);
+		if (fabs(z.f) != 0.0) printf("%+.4g",z.f);
 		putchar(')');
 		if (z.e != 0) {
 			printf(e10,z.e);
 		}
-		printf("\t# %g",as_double(z));
 	}
-	//printf("\t# gcd(n,d) = %i",gcdr(z.n,z.d));
+	if (s==commented) printf("\t# %g",as_double(z));
 	putchar(final);
 }
 
@@ -797,19 +799,19 @@ void evaluate(struct stack *s, struct split *prog, struct split *cells, struct h
 enum output {human, raw, flt};
 
 
-void print_stack(struct stack *s, enum output o, char sep, char final){
+void print_stack(struct stack *s, enum output o, char sep, char final, enum style l){
 	int i;
 	int n=s->size;
 	for (i=0;i<n;i++){
 		switch(o){
 		case human:
-			display_number(s->element[i],i<n-1?sep:final);
+			display_number(s->element[i],i<n-1?sep:final,l);
 			break;
 		case raw:
-			display_raw(s->element[i],i<n-1?sep:final);
+			display_raw(s->element[i],i<n-1?sep:final,l);
 			break;
 		case flt:
-			display_double(s->element[i],i<n-1?sep:final);
+			display_double(s->element[i],i<n-1?sep:final,l);
 			break;
 		}
 	}
@@ -819,12 +821,15 @@ void reset_stack(struct stack *s){
 	s->size=0;
 }
 
-int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
+int main(int argc, char *argv[]){
 	if (argc==1) return EXIT_FAILURE;
 	char *prog_buffer=NULL;
 	struct split prog=split_alloc(64);
 	struct split cells=split_alloc(64);
+	char *buffer;
+	struct split res_names=split_alloc(64);
 	int j;
+	struct split names=split_alloc(64);
 	struct hash header=default_header();
 	ssize_t m;
 	size_t n=128;
@@ -838,8 +843,11 @@ int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
 			o=raw;
 		} else if (strcmp("-d",argv[j])==0){
 			o=flt;
+		} else if (strcmp("-H",argv[j])==0){
+			buffer=strdup(argv[++j]);
+			strsplit(buffer,&res_names,",;");
 		} else {
-			prog_buffer=strdup(argv[j]);
+			prog_buffer=strdupa(argv[j]);
 			strsplit(prog_buffer,&prog," ");
 		}
 	}
@@ -849,20 +857,25 @@ int main(int argc, char *argv[]){ //(setq c-basic-offset 4)
 		line[m-1]='\0';
 		if (NR==0 && line && is_header(line)){
 			free(header.val); // free default header (A-Z)
-			header = remember_header(line);
+			strsplit(line,&names,"\t");
+			header = remember_header(&names);
+			if (res_names.size>0){
+				print_split(&names,'\t','\t');
+				print_split(&res_names,'\t','\n');
+			}
 		} else {
-			fputs(line,stdout); putchar('\t');
 			cells.size=0;
 			strsplit(line,&cells,"\t");
 			evaluate(&s,&prog,&cells,&header);
-			print_stack(&s,o,'\t','\n');
+			print_split(&cells,'\t','\t');
+			print_stack(&s,o,'\t','\n',compact);
 			reset_stack(&s);
 		}
 		NR++;
 	}
 	if (!piped){
 		evaluate(&s,&prog,NULL,NULL);
-		print_stack(&s,o,'\n','\n');
+		print_stack(&s,o,'\n','\n',commented);
 	}
 	return EXIT_SUCCESS;
 }

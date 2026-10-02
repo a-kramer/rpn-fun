@@ -602,4 +602,47 @@ measure of how far apart, or unequal `<>`, two numbers are:
 0.707106781187
 ```
 
+# TSV file input
+
+This reverse polish notation calculator can function like a TSV file
+processor. The command:
+
+```sh
+./rpnc -H z 'x y +' -H w 'x y - +' < tests/test.tsv
+```
+
+will add two columns to the TSV, a `z` column with the sum of the `x` and `y` column and a `w` column with the difference:
+
+|  x | y |  z |  w |
+|---:|--:|---:|---:|
+|  1 | 2 |  3 | -1 |
+|  5 | 9 | 14 | -4 |
+| 10 | 1 | 11 |  9 |
+(converted to markdown)
+
+The output is also in TSV format.
+
+The same can be achieved with one expression and header specification:
+
+```sh
+./rpnc -H "z,w" 'x y + x y - +' < tests/test.tsv
+```
+```
+x       y       z       w
+1       2       3       -1
+5       9       14      -4
+10      1       11      9
+```
+
+The columns are created from the remaining stack once the calculation
+finishes. The above EPN expression `x y + x y - +` leaves two items on
+the stack, and thus fills two columns. The number of columns isn't
+checked, and neither is the consistency with the number of header
+strings. The header option `-H` expects a comma separated list (this
+way it doesn't get split by the shell), several `-H` are allowed.
+
+Equivalent:
+- `-H z` `-H w`
+- `-H z,w`
+
 
