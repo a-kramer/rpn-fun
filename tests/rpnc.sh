@@ -1,6 +1,6 @@
 #!/bin/sh
 echo "TAP version 14"
-echo "1..42"
+echo "1..45"
 
 i=$((1))
 
@@ -28,3 +28,15 @@ do
 		echo "not ok $i - function $f should exist but doesn't ($x)"
 	fi
 done
+
+i=$((i+1))
+
+./rpnc -H z 'A B +' < tests/test.tsv | wc | awk -v j=$i '{if ($1==4 && $2==12 && $3==27) {printf("ok %i - A-Z adressing\n",j)} else {printf("not ok %i - A-Z adressing\n",j)}}'
+
+i=$((i+1))
+
+./rpnc -H z '$0 $1 +' < tests/test.tsv | wc | awk -v j=$i '{if ($1==4 && $2==12 && $3==27) {printf("ok %i - $n adressing\n",j)} else {printf("not ok %i - $n adressing\n",j)}}'
+
+i=$((i+1))
+
+./rpnc -H z 'x y +' < tests/test.tsv | wc | awk -v j=$i '{if ($1==4 && $2==12 && $3==27) {printf("ok %i - named adressing\n",j)} else {printf("not ok %i - named adressing\n",j)}}'
