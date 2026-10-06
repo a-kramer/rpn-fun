@@ -678,12 +678,18 @@ void evaluate(struct stack *s, struct split *prog, struct split *cells, struct h
 				i=strtol(item+1,NULL,0);
 				if (0<=i && i<cells->size) {
 					item=cells->token[i];
+				} else {
+					fprintf(stderr,"[%s] $%i out of bounds ($0-$%li).\n",__func__,i,cells->size);
+					abort();
 				}
 			} else if (strlen(item)==1 && isupper(*item)) {
 				// this is for refs such as A
 				i=item[0]-'A';
 				if (0<=i && i<cells->size) {
 					item=cells->token[i];
+				} else {
+					fprintf(stderr,"[%s] %c out of bounds (A-%c).\n",__func__,*item,'A'+(char) (cells->size-1));
+					abort();
 				}
 			} else if (header){
 				// this is for named references, TSV must have header line
