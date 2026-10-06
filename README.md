@@ -629,6 +629,7 @@ and `y` column and a `w` column with the difference:
 |  1 | 2 |  3 | -1 |
 |  5 | 9 | 14 | -4 |
 | 10 | 1 | 11 |  9 |
+
 (converted to markdown)
 
 The output is also in TSV format.
