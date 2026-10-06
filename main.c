@@ -276,9 +276,10 @@ void fix_overflow(struct number *z, char *a){
 }
 
 /* The number format is a;n;d; */
-struct number read_number(char *str) {
+struct number read_number(const char *cstr) {
 	struct number z = zero;
-	if (!str || !*str) return z;
+	if (!cstr || !*cstr) return z;
+	char *str=strdupa(cstr);
 	while (*str==';') str++; // skip leading semicolons
 	char *p=str+strlen(str)-1;
 	while (*p==';') {
@@ -359,13 +360,14 @@ void display_number(struct number z, char final, enum style s){
 		return;
 	}
 	if (z.n == 0 && z.e == 0) {
-		printf("%li",z.a);
+		if (z.a) printf("%li",z.a);
 		if (s==loose || s==commented) putchar(' ');
 		if (fabs(z.f) != 0.0) {
 			printf("%+.4g",z.f);
 		}
 	} else {
-		printf("(%li",z.a);
+		putchar('(');
+		if (z.a) printf("%li",z.a);
 		if (s==loose || s==commented) putchar(' ');
 		if (abs(z.n) != 0) printf("%+i/%i",z.n,z.d);
 		if (fabs(z.f) != 0.0) printf("%+.4g",z.f);
