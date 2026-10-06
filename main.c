@@ -549,8 +549,14 @@ struct number add(struct number x, struct number y){
 struct number inverse(struct number z){
 	struct number x=z;
 	if (memcmp(&z,&one,sizeof(struct number))==0) return one;
-	if (memcmp(&z,&zero,sizeof(struct number))==0) abort();
-	if (fabs(as_double(z))==0.0) abort();
+	if (memcmp(&z,&zero,sizeof(struct number))==0) {
+		fprintf(stderr,"[%s] cannot invert zero multiplicatively (%g).\n",__func__,as_double(z));
+		abort();
+	}
+	if (fabs(as_double(z))==0.0) {
+		fprintf(stderr,"[%s] cannot invert %g multiplicatively.\n",__func__,as_double(z));
+		abort();
+	}
 	if (fabs(z.f)>0.0) return as_rational(1.0/as_double(z));
 	x.a=0;
 	x.n=z.d;
@@ -666,12 +672,28 @@ void evaluate(struct stack *s, struct split *prog, struct split *cells, struct h
 	//assert(cells->size == header->size);
 	for (j=0;j<prog->size;j++){
 		item=prog->token[j];
-		if (cells && header && header->val){
-			h=FNV1a(item);
-			for (i=0; i<header->size; i++){
-				if (header->val[i] == h){
-					//printf("«%s» is actually «%s» here.\n",item,cells->token[i]);
+		if (cells){
+			if (*item == '$') {
+				// this is for refs such as $0
+				i=strtol(item+1,NULL,0);
+				if (0<=i && i<=cells->size) {
 					item=cells->token[i];
+				}
+			} else if (strlen(item)==1 && isupper(*item)) {
+				// this is for refs such as A
+				i=item[0]-'A';
+				if (0<=i && i<=cells->size) {
+					item=cells->token[i];
+				}
+			} else if (header){
+				// this is for named references, TSV must have header line
+				h=FNV1a(item);
+				for (i=0; i<header->size; i++){
+					if (header->val[i] == h){
+						//printf("«%s» is actually «%s» here.\n",item,cells->token[i]);
+						item=cells->token[i];
+						break;
+					}
 				}
 			}
 		}
@@ -830,7 +852,7 @@ int main(int argc, char *argv[]){
 	struct split res_names=split_alloc(64);
 	int j;
 	struct split names=split_alloc(64);
-	struct hash header=default_header();
+	struct hash header={NULL,0,0};
 	ssize_t m;
 	size_t n=128;
 	char *line=malloc(n);
@@ -851,12 +873,10 @@ int main(int argc, char *argv[]){
 			strsplit(prog_buffer,&prog," ");
 		}
 	}
-	int i;
 	if (!prog_buffer) abort(); // no program was supplied
 	while (piped && (m=getline(&line,&n,stdin))>0 && !feof(stdin)) {
 		line[m-1]='\0';
 		if (NR==0 && line && is_header(line)){
-			free(header.val); // free default header (A-Z)
 			strsplit(line,&names,"\t");
 			header = remember_header(&names);
 			if (res_names.size>0){
