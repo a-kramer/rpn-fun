@@ -434,13 +434,18 @@ But, perhaps what people need from a quick command line tool, is a
 calculation that is integer-like, when sufficient, and not integer
 when needed.
 
-The _integer_ ($\mathbb{Z}$) part of the number is currently stored as a `long` (at least 10 decimal places). 
+The _integer_ ($\mathbb{Z}$) part of the number is currently stored as
+a `long` (at least 10 decimal places).
 
 When reading rational numbers (like `1;2;3;4`), and the first item
 (the integer part) is too large for `long` the read is re-tried as
-`double`. This is a crude workaround, with loss of accuracy, of course.
+`double`. This is a crude workaround, with loss of accuracy, of
+course.
 
-There is an in-between solution for numbers that just barely don't fit into `long`: the last few digits of the number are stored in the fraction part of the number (the trailing `;` triggers the reading of a rational):
+There is an in-between solution for numbers that just barely don't fit
+into `long`: the last few digits of the number are stored in the
+fraction part of the number (the trailing `;` triggers the reading of
+a rational):
 
 ```sh
 ./rpnc  '12345678901234567891;'
@@ -449,9 +454,11 @@ There is an in-between solution for numbers that just barely don't fit into `lon
 (1234567890123456 +7891/10000)*pow(10,4)        # 1.23457e+19
 ```
 
-The entire number is split up, stored separately and scaled by an appropriate exponent.
+The entire number is split up, stored separately and scaled by an
+appropriate exponent.
 
-If the input already contains a fractional part, then the extra bit is shifted into the correction part of the number:
+If the input already contains a fractional part, then the extra bit is
+shifted into the correction part of the number:
 
 ```sh
 ./rpnc  '12345678901234567891;1;3'
@@ -460,8 +467,11 @@ If the input already contains a fractional part, then the extra bit is shifted i
 (1234567890123456 +1/30000 +0.7891)*pow(10,4)   # 1.23457e+19
 ```
 
-Not sure how helpful this is to anyone.
-Provided with even bigger numbers, it is parsed with `strtod` as a `double`. This double precision floating point number is scaled and saved in the integer part of the final number, the rest of the digits are saved as a second correction term:
+Not sure how helpful this is to anyone.  Provided with even bigger
+numbers, it is parsed with `strtod` as a `double`. This double
+precision floating point number is scaled and saved in the integer
+part of the final number, the rest of the digits are saved as a second
+correction term:
 
 ```sh
 ./rpnc  '123456789012345678911234567892'
@@ -588,11 +598,11 @@ overlap or what the distance is between distributions.
 
 One approach could be to check whether two numbers have touching
 $\sigma$-confidence intervals (`5.0(5)` and `6.0(5)` are compatible,
-because they touch, barely, at `5.5`).
+because they touch, at `5.5`).
 
 Or we could use the Kullback Leibler Divergence.
 
-But, we decided to use the _Bhattacharyya distance_ distance as a
+But, we decided to use the _Bhattacharyya distance_ as a
 measure of how far apart, or unequal `<>`, two numbers are:
 
 ```
@@ -611,7 +621,8 @@ processor. The command:
 ./rpnc -H z 'x y +' -H w 'x y - +' < tests/test.tsv
 ```
 
-will add two columns to the TSV, a `z` column with the sum of the `x` and `y` column and a `w` column with the difference:
+will add two columns to the TSV, a `z` column with the sum of the `x`
+and `y` column and a `w` column with the difference:
 
 |  x | y |  z |  w |
 |---:|--:|---:|---:|
@@ -628,10 +639,10 @@ The same can be achieved with one expression and header specification:
 ./rpnc -H "z,w" 'x y + x y - +' < tests/test.tsv
 ```
 ```
-x       y       z       w
-1       2       3       -1
-5       9       14      -4
-10      1       11      9
+x	y	z	w
+1	2	3	-1
+5	9	14	-4
+10	1	11	9
 ```
 
 The columns are created from the remaining stack once the calculation
@@ -646,3 +657,55 @@ Equivalent:
 - `-H z,w`
 
 
+## TSV Files without Headers
+
+When there is no header, the columns can be addressed with
+- `A`,`B`, ... , `Z`,
+- `$0`, ...
+
+The first naming convention is taken from spreadsheet software like
+[Gnumeric](gnumeric.org). The second convention is similar to shell
+command line arguments.
+
+Examples:
+
+```sh
+./rpnc -H z 'A B +' < tests/test.tsv
+```
+```
+x	y	z
+1	2	3
+5	9	14
+10	1	11
+```
+
+With numbers:
+
+```sh
+./rpnc -H z '$0 $1 +' < tests/test.tsv
+```
+```
+x	y	z
+1	2	3
+5	9	14
+10	1	11
+```
+
+Currently, the single letter header names override any user supplied
+header in the file.  A file like this would not work right:
+
+```
+C	A	B
+1	2	3
+5	9	14
+10	1	11
+```
+
+And a file like this would work purely coincidentally:
+
+```
+A	B	C
+1	2	3
+5	9	14
+10	1	11
+```

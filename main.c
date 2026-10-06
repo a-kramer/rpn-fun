@@ -676,13 +676,13 @@ void evaluate(struct stack *s, struct split *prog, struct split *cells, struct h
 			if (*item == '$') {
 				// this is for refs such as $0
 				i=strtol(item+1,NULL,0);
-				if (0<=i && i<=cells->size) {
+				if (0<=i && i<cells->size) {
 					item=cells->token[i];
 				}
 			} else if (strlen(item)==1 && isupper(*item)) {
 				// this is for refs such as A
 				i=item[0]-'A';
-				if (0<=i && i<=cells->size) {
+				if (0<=i && i<cells->size) {
 					item=cells->token[i];
 				}
 			} else if (header){
