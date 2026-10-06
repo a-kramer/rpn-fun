@@ -61,8 +61,8 @@ for f in $FUNCS; do
 	assert_cmd "function $f exists and evaluates" ./rpnc -d "1.0 $f"
 done
 
-# Address resolution tests (Checking actual content rather than wc byte counts)
-EXPECTED=$(printf "x\ty\tz\n1\t2\t3\n5\t9\t14\n10\t1\t11\n") # Example expected output
+# Address resolution tests
+EXPECTED=$(printf "x\ty\tz\n1\t2\t3\n5\t9\t14\n10\t1\t11\n") #
 
 x=$(./rpnc -H z 'A B +' < tests/test.tsv)
 assert_eq "$EXPECTED" "$x" 'A-Z addressing'
