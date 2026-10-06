@@ -386,7 +386,7 @@ struct number negate(struct number z){
 }
 
 struct number simple_rational(long a, int n, int d){
-	struct number z={a,n,d,0,0.0,0.0};
+	struct number z={a,n,d?d:1,0,0.0,0.0};
 	return z;
 }
 
@@ -817,6 +817,11 @@ void evaluate(int NR, struct stack *s, struct split *prog, struct split *cells, 
 				z=stack_pop(s);
 				stack_push(s,inverse(z));
 				break;
+			case '%':
+				b=stack_pop(s);
+				a=stack_pop(s);
+				z=simple_rational(((long) as_double(a)) % ((long) as_double(b)),0,1);
+				stack_push(s,z);
 			}
 		}
 	}
