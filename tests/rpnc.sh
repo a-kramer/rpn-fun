@@ -2,41 +2,73 @@
 echo "TAP version 14"
 echo "1..45"
 
-i=$((1))
+i=0
 
-printf "%g" $(./rpnc -d '1.234') > /dev/null && echo "ok $i - the '-d' flag produces something that printf accepts" || echo "not ok $i - something is wrong with the '-d' flag"
+# Test exit status
+assert_cmd() {
+	i=$((i + 1))
+	name="$1"
+	shift
+	if "$@" > /dev/null 2>&1; then
+		echo "ok $i - $name"
+	else
+		echo "not ok $i - $name"
+	fi
+}
 
-i=$((i+1))
+# Test string equality
+assert_eq() {
+	i=$((i + 1))
+	expected="$1"
+	actual="$2"
+	name="$3"
+	if [ "$expected" = "$actual" ]; then
+		echo "ok $i - $name"
+	else
+		echo "not ok $i - $name (expected '$expected', got '$actual')"
+	fi
+}
 
-x="$(./rpnc -d ';1;3 3 *')"
-[ "$x" -eq 1 ] && echo "ok $i - a third times three is exactly one" || echo "not ok $i - a third times three is not exactly one"
+# Test integer equality
+assert_int_eq() {
+	i=$((i + 1))
+	expected="$1"
+	actual="$2"
+	name="$3"
+	if [ "$expected" -eq "$actual" ]; then
+		echo "ok $i - $name"
+	else
+		echo "not ok $i - $name (expected '$expected', got '$actual')"
+	fi
+}
 
-i=$((i+1))
+
+# --- Test Suite ---
+
+assert_cmd "the '-d' flag produces something that printf accepts" \
+	sh -c 'printf "%g" "$(./rpnc -d "1.234")"'
+
+x=$(./rpnc -d ';1;3 3 *')
+assert_eq "1" "$x" "a third times three is exactly one"
 
 x=$(./rpnc -r '1;2;3' | awk -F '#' '{print $1}' | tr -d '\t')
-[ "$x" = "1;2;3;0" ] && echo "ok $i - the '-r' flag works as expected" || echo "not ok $i - the '-r' flag doesn't work right: «$x» =/= 1;2;3;0"
+assert_eq "1;2;3;0" "$x" "the '-r' flag works as expected"
 
+# Math functions test loop
+FUNCS="acos acosh asin asinh atan atanh cbrt ceil cos cosh erf erfc exp exp2 expm1 fabs floor lgamma log log10 log1p log2 logb nearbyint rint round sin sinh sqrt tan tanh tgamma trunc j0 j1 y0 y1 significand exp10"
 
-for f in acos acosh asin asinh atan atanh cbrt ceil cos cosh erf erfc exp exp2 expm1 fabs floor lgamma log log10 log1p log2 logb nearbyint rint round sin sinh sqrt tan tanh tgamma trunc j0 j1 y0 y1 significand exp10
-do
-	i=$((i+1))
-	x=$(./rpnc -d "1.0 $f")
-	q=$?
-	if [ $q -eq 0 ]; then
-		echo "ok $i - function $f exists, $f(1.0) returns some value ($x);"
-	else
-		echo "not ok $i - function $f should exist but doesn't ($x)"
-	fi
+for f in $FUNCS; do
+	assert_cmd "function $f exists and evaluates" ./rpnc -d "1.0 $f"
 done
 
-i=$((i+1))
+# Address resolution tests (Checking actual content rather than wc byte counts)
+EXPECTED=$(printf "x\ty\tz\n1\t2\t3\n5\t9\t14\n10\t1\t11\n") # Example expected output
 
-./rpnc -H z 'A B +' < tests/test.tsv | wc | awk -v j=$i '{if ($1==4 && $2==12 && $3==27) {printf("ok %i - A-Z adressing\n",j)} else {printf("not ok %i - A-Z adressing\n",j)}}'
+x=$(./rpnc -H z 'A B +' < tests/test.tsv)
+assert_eq "$EXPECTED" "$x" 'A-Z addressing'
 
-i=$((i+1))
+x=$(./rpnc -H z '$0 $1 +' < tests/test.tsv)
+assert_eq "$EXPECTED" "$x" '$n addressing'
 
-./rpnc -H z '$0 $1 +' < tests/test.tsv | wc | awk -v j=$i '{if ($1==4 && $2==12 && $3==27) {printf("ok %i - $n adressing\n",j)} else {printf("not ok %i - $n adressing\n",j)}}'
-
-i=$((i+1))
-
-./rpnc -H z 'x y +' < tests/test.tsv | wc | awk -v j=$i '{if ($1==4 && $2==12 && $3==27) {printf("ok %i - named adressing\n",j)} else {printf("not ok %i - named adressing\n",j)}}'
+x=$(./rpnc -H z 'x y +' < tests/test.tsv)
+assert_eq "$EXPECTED" "$x" 'named addressing'
