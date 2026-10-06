@@ -149,19 +149,6 @@ struct hash {
 	size_t max;
 };
 
-struct hash default_header(){
-	char a;
-	struct hash H;
-	H.max=(1+'Z'-'A');
-	H.val=malloc(sizeof(uint64_t)*H.max);
-	for (a='A';a<='Z';a++){
-		H.val[a-'A'] = FNV1a(CSTR(a));
-	}
-	H.size=H.max;
-	return H;
-}
-
-
 int is_header(const char *str){
 	while (isblank(*str)) str++;
 	if (isalpha(*str)) return 1;
@@ -395,6 +382,11 @@ struct number negate(struct number z){
 	z.a*=-1;
 	z.n*=-1;
 	z.f*=-1.0;
+	return z;
+}
+
+struct number simple_rational(long a, int n, int d){
+	struct number z={a,n,d,0,0.0,0.0};
 	return z;
 }
 
@@ -653,17 +645,19 @@ void stack_push_d(struct stack *s, double d){
 /* Table of operators:
  * + adds the top two numbers on te stack
  * - negates the top of the stack
- * / inverts the top number: 1.0/num
+ * @ inverts the top number: 1.0/num
  * * multiplies the top two numbers
+ * / divides two numbers
+ * \ divides two numbers in reverse order compared to /
  */
 
-/* Evaluates an RPN program (with a stack), optionally, with table                     */
-/* cells as context.                                                                   */
-/* The cells can be referenced by name through the header of the                       */
-/*                                                                                     */
-/* table:             RPN program                   &optional      table               */
-/*            ╭─────────────────────────────────╮  ╭──────────────────────────────────────╮  */
-void evaluate(struct stack *s, struct split *prog, struct split *cells, struct hash *header){
+/* Evaluates an RPN program (with a stack), optionally, with table                                   */
+/* cells as context.                                                                                 */
+/* The cells can be referenced by name through the header of the                                     */
+/*                                                                                                   */
+/* table:                         RPN program                   &optional      table                 */
+/*                    ╭─────────────────────────────────╮  ╭──────────────────────────────────────╮  */
+void evaluate(int NR, struct stack *s, struct split *prog, struct split *cells, struct hash *header){
 	char *item;
 	struct number z,a,b;
 	enum func fn;
@@ -676,8 +670,10 @@ void evaluate(struct stack *s, struct split *prog, struct split *cells, struct h
 			if (*item == '$') {
 				// this is for refs such as $0
 				i=strtol(item+1,NULL,0);
-				if (0<=i && i<cells->size) {
-					item=cells->token[i];
+				if (i==0){
+					item=NULL;
+				} else if (0<i && i<=cells->size) {
+					item=cells->token[i-1];
 				} else {
 					fprintf(stderr,"[%s] $%i out of bounds ($0-$%li).\n",__func__,i,cells->size);
 					abort();
@@ -703,13 +699,15 @@ void evaluate(struct stack *s, struct split *prog, struct split *cells, struct h
 				}
 			}
 		}
-		if (strchr(item,'(')){                 /* uncertain number */
+		if (!item){
+			stack_push(s,simple_rational(NR,0,0));
+		} else if (strchr(item,'(')){          /* uncertain number */
 			z=read_concise(item);
 			stack_push(s,z);
 		} else if (strchr(item,';')){          /* rational number*/
 			z=reduce(read_number(item));
 			stack_push(s,z);
-		} else if (*item=='M'){                /* mathematical constant */
+		} else if (*item=='M' && *(item+1)=='_'){/* mathematical constant */
 			z=as_rational(constant(item));
 			stack_push(s,z);
 		} else if (is_double(item)){           /* floating point number */
@@ -859,6 +857,7 @@ int main(int argc, char *argv[]){
 	int j;
 	struct split names=split_alloc(64);
 	struct hash header={NULL,0,0};
+	enum stack_state {forget, remember} in_between=forget;
 	ssize_t m;
 	size_t n=128;
 	char *line=malloc(n);
@@ -874,6 +873,8 @@ int main(int argc, char *argv[]){
 		} else if (strcmp("-H",argv[j])==0){
 			buffer=strdup(argv[++j]);
 			strsplit(buffer,&res_names,",;");
+		} else if (strcmp("-&",argv[j])==0) {
+			in_between=remember;
 		} else {
 			prog_buffer=strdupa(argv[j]);
 			strsplit(prog_buffer,&prog," ");
@@ -892,15 +893,15 @@ int main(int argc, char *argv[]){
 		} else {
 			cells.size=0;
 			strsplit(line,&cells,"\t");
-			evaluate(&s,&prog,&cells,&header);
+			evaluate(NR,&s,&prog,&cells,&header);
 			print_split(&cells,'\t','\t');
 			print_stack(&s,o,'\t','\n',compact);
-			reset_stack(&s);
+			if (in_between==forget) reset_stack(&s);
 		}
 		NR++;
 	}
 	if (!piped){
-		evaluate(&s,&prog,NULL,NULL);
+		evaluate(0,&s,&prog,NULL,NULL);
 		print_stack(&s,o,'\n','\n',commented);
 	}
 	return EXIT_SUCCESS;

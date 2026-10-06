@@ -661,8 +661,12 @@ Equivalent:
 ## TSV Files without Headers
 
 When there is no header, the columns can be addressed with
-- `A`,`B`, ... , `Z`,
-- `$0`, ...
+1. `A`,`B`, ... , `Z`,
+2. `$1`, ...
+3. A mixture of the two
+
+There is a special, secret column `$0` which corresponds to the row
+number (similar to `NR` in `awk`).
 
 The first naming convention is taken from spreadsheet software like
 [Gnumeric](gnumeric.org). The second convention is similar to shell
@@ -683,7 +687,18 @@ x	y	z
 With numbers:
 
 ```sh
-./rpnc -H z '$0 $1 +' < tests/test.tsv
+./rpnc -H z '$1 $2 +' < tests/test.tsv
+```
+```
+x	y	z
+1	2	3
+5	9	14
+10	1	11
+```
+
+And finally:
+```sh
+./rpnc -H z 'A $2 +' < tests/test.tsv
 ```
 ```
 x	y	z
