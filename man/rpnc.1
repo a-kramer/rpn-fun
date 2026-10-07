@@ -1,4 +1,4 @@
-.TH rpnc 1 "2022-03-17" "0.5" "rpn-math-package"
+.TH rpnc 1 "2022-03-17" "0.75" "rpn-math-package"
 .SH NAME
 rpnc - reverse polish notation calculator
 .SH SYNOPSIS
@@ -47,6 +47,14 @@ The program recognizes all math functions with one argument in math.h:
 Some options can be set during compilation, in
 .I config.h
 .
+
+.TP TSV files
+
+The program reads from stdin, a TSV file with named columns (or
+unnamed columns) can be piped in. The column names can be used in all
+operations, the RPN expressions are applied to each row. If the
+columns are not named, they can be accessed with A-Z or alternatively
+with $\fIn\fR (\fIn\fR is a long integer, for more than 26 columns).
 
 .SH Unary Operators
 
@@ -191,10 +199,18 @@ $ rpnc -r '2 @ sqrt' | sed 's/#.*$//' | awk -F';' '{printf("\\\\left(%i + \\\\fr
 \\left(707 + \\frac{74}{693}\\right)\\times 10^{-3}
 .EE
 
-Here, we also demonstrate post-processing with
-.B sed
-and
-.B awk.
+.B TSV Files:
+.EX
+$ rpnc 'A B +' < tests/test.tsv
+1       2       3
+5       9       14
+10      1       11
+$ rpnc -H z,w 'A B +' '$1 $2 diff' < tests/test.tsv
+x       y       z       w
+1       2       3       1
+5       9       14      4
+10      1       11      9
+.EE
 
 .B Boring Output:
 .EX
@@ -213,5 +229,5 @@ switches output to rational: A;n;d;E, a semi-colon separated list, ideal for pro
 switches output to only print a double-precision floating point value with %g as format.
 
 .TP
--e \fI prog \fR
-used to pass a program to rpnc in a similar way as with dc, this does nothing (currently).
+-H \fI x,y,z,... \fR
+a comma separated list of column names for named TSV output. This list must match the stack size at the end of the computation (\fIn\fR items in stack, \fIn-1\fR commas in list).

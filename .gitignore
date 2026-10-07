@@ -1,5 +1,8 @@
 rpnc
 
+# code snippet files that save code for later
+*-read.c
+
 # Prerequisites
 *.d
 
