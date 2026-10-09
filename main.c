@@ -231,7 +231,7 @@ void print_concise(struct number x, enum style s){
 	double w=x.u;
 	int vscale=floor(log10(fabs(z+1e-8)));
 	int uscale=floor(log10(fabs(w+1e-8)));
-	int d=vscale-uscale+1;
+	int d=(vscale-uscale+1);
 	double v=z*pow(10,-vscale);
 	int u=w*pow(10,1-uscale);
 	if (u%10==0 && d>0){
@@ -763,6 +763,13 @@ void evaluate(int NR, struct stack *s, struct split *prog, struct split *cells, 
 				} else {
 					stack_push(s,as_rational(as_double(a) != as_double(b)));
 				}
+			} else if (strcmp("+-",item)==0 || strcmp("±",item)==0){
+				b=stack_pop(s);
+				a=stack_pop(s);
+				z=zero;
+				z.f=as_double(a);
+				z.u=as_double(b);
+				stack_push(s,z);
 			}
 		} else {                    /* an operator: +-^*/
 			switch(*item){
@@ -824,6 +831,15 @@ void evaluate(int NR, struct stack *s, struct split *prog, struct split *cells, 
 				a=stack_pop(s);
 				z=simple_rational(((long) as_double(a)) % ((long) as_double(b)),0,1);
 				stack_push(s,z);
+				break;
+			case ',':
+				b=stack_pop(s);
+				a=stack_pop(s);
+				z=zero;
+				z.f=as_double(a);
+				z.u=as_double(b);
+				stack_push(s,z);
+				break;
 			}
 		}
 	}

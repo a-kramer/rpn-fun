@@ -253,6 +253,9 @@ implemented. In every case the result is pushed onto the stack.
 `*`
 : pops two values from the stack and multiplies them
 
+`,`,`+-`,`±`
+: pops a number, interprets it as a _standard error_ , then pops a seconf number and assigns to it the uncertainty.
+
 `@`
 : inverse, pops a value, then pushes the inverse of that number to the stack
 
@@ -272,6 +275,15 @@ And also for the purposes of division:
 ```
 ```sh
 (1)	# 1
+```
+
+Standard Errors:
+
+```sh
+./rpnc '123 4 ,'
+```
+```
+1.23(4)E+2      # 123 ± 4
 ```
 
 ## Binary Operators
@@ -332,7 +344,7 @@ Or, equivalently:
 ```
 
 This, to me, is a much nicer order, with the numbers grouped apart
-from the operations; I also finc the order of operations easy to
+from the operations; I also find the order of operations easy to
 remeber. In this pattern, you can also deduce from the operations,
 which number represents what: it is clear to me that the `log` is
 applied to the base. This solves the order problem form exponents,
@@ -427,8 +439,8 @@ M_SQRT1_2
 
 # Precision
 
-This program is not _arbitrary precision_, increasing the precision
-may become a goal later on.
+This program does not offer _arbitrary precision_ (`dc` does),
+increasing the precision may become a goal later on.
 
 But, perhaps what people need from a quick command line tool, is a
 calculation that is integer-like, when sufficient, and not integer
@@ -543,6 +555,42 @@ Once again, the uncertainty can be suppressed from the output:
 ```
 ```
 0.99999999588
+```
+
+### Parsing TSV files with Standard Errors
+
+Let's assume we are instead working on a TSV file where the numbers
+and their uncerainties are split up across neighboring fields. We may
+want to replace that with parenthesised error notation:
+
+```elisp
+(let ((n 1))
+	(while (<= n 24)
+		(insert
+			(format "%.1f%c"
+			(if (= (% n 2) 1) (random 100) (* 0.05 (random 100)))
+			(if (= (% n 4) 0) ?\n ?\t)))
+			(setq n (1+ n))))
+```
+
+```sh
+(./rpnc -H a,b '$1 $2 , $3 $4 ,' | awk -F'\t' '{print $5 "\t" $6}')<<EOF
+a_val	a_err	b_val	b_err
+39.0	4.7	60.0	3.5
+97.0	3.9	65.0	3.9
+35.0	0.8	20.0	0.2
+47.0	3.3	9.0	0.4
+55.0	4.9	44.0	4.5
+29.0	2.1	87.0	0.8
+EOF
+```
+```
+3.90(47)E+1     6.00(35)E+1
+9.70(39)E+1     6.50(39)E+1
+3.50(8)E+1      2.00(2)E+1
+4.70(33)E+1     9.0(4)
+5.50(49)E+1     4.40(45)E+1
+2.90(21)E+1     8.70(8)E+1
 ```
 
 ## Method of Error Propagation

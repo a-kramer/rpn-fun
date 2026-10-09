@@ -1,5 +1,8 @@
 /* edit this file to configure some of the details that need not change frequently */
 
+/* exponents will be in multiples of: */
+const int EM = 3;
+
 /* the format of the base-10 exponent, on output */
 const char *e10 = "*pow(10,%i)";
 
